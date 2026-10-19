@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>备忘录</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <header class="drag-region">
+        <div>
+          <h1>Memo</h1>
+        </div>
+        <div class="window-controls no-drag">
+          <div class="clock-bubble" title="当前时间">
+            <span class="signal red"></span><span class="signal green"></span><time id="clock">--:--</time>
+          </div>
+          <button id="hide" title="关闭到后台（Ctrl+Alt+M 重新显示）">×</button>
+        </div>
+      </header>
+
+      <section class="events-section" aria-label="事件列表">
+        <div class="section-heading">
+          <div class="heading-controls">
+            <label class="filter-control">Filter <select id="category-filter"><option value="all">全部</option><option value="task">事情</option><option value="learning">学习</option><option value="shopping">购物</option><option value="life">生活</option><option value="other">其他</option></select></label>
+            <select id="sort-by" class="sort-control" title="排序方式"><option value="dueAt">截止</option><option value="startAt">开始</option></select>
+          </div>
+          <span id="event-count"></span>
+        </div>
+        <div id="event-list" class="event-list"></div>
+      </section>
+      <p id="toast" class="toast" role="status"></p>
+
+      <div id="action-dock" class="floating-actions action-dock no-drag">
+        <button id="dock-toggle" class="dock-toggle" aria-expanded="false" title="展开快捷功能" aria-label="展开快捷功能"><span class="dock-chevron">‹</span><span class="dock-chevron">‹</span><span class="dock-chevron">‹</span></button>
+        <div class="dock-actions">
+          <button id="toggle-window-pin" class="fab secondary" title="固定窗口位置与尺寸">📌</button>
+          <button id="toggle-click-through" class="fab secondary" title="锁定交互并点击穿透">🔓</button>
+          <button id="open-settings" class="fab secondary" title="设置">⚙</button>
+          <button id="open-capture" class="fab primary-fab" title="添加事件">＋</button>
+        </div>
+      </div>
+
+      <section id="capture-sheet" class="sheet no-drag" aria-hidden="true">
+        <div class="sheet-heading"><div><p class="eyebrow">备忘与事件部</p><h2>添加事件</h2></div><button class="close-sheet" data-close="capture-sheet">×</button></div>
+        <textarea id="memo" rows="3" placeholder="例如：明天下午 3 点和张总开会，准备报价单"></textarea>
+        <div class="capture-options">
+          <label class="category-field">类别：<select id="event-category"><option value="task">事情</option><option value="learning">学习</option><option value="shopping">购物</option><option value="life">生活</option><option value="other">其他</option></select></label>
+          <label class="reminder-field">提前提醒 <input id="reminder-days" type="number" min="0" max="365" step="1" value="1" /> <span>天（默认 1 天）</span></label>
+        </div>
+        <div class="date-fields">
+          <label>开始日期 <input id="start-date" type="date" /></label>
+          <label>开始时间 <input id="start-time" type="time" title="可不填" /></label>
+          <label>截止日期 <input id="due-date" type="date" /></label>
+          <label>截止时间 <input id="due-time" type="time" title="可不填" /></label>
+        </div>
+        <div class="capture-footer"><span id="department-status">已就绪</span><button class="primary" id="capture-button">添加</button></div>
+      </section>
+
+      <section id="settings-sheet" class="sheet no-drag" aria-hidden="true">
+        <div class="sheet-heading"><div><p class="eyebrow">DISPLAY</p><h2>显示设置</h2></div><button class="close-sheet" data-close="settings-sheet">×</button></div>
+        <label class="setting-row">内容透明度 <input id="content-opacity" type="range" min="0.45" max="1" step="0.05" /></label>
+        <label class="setting-row">背景透明度 <input id="background-opacity" type="range" min="0" max="0.98" step="0.02" /></label>
+        <label class="setting-row theme-row">主题颜色 <input id="theme-color" type="color" value="#8f82ff" title="选择主题颜色" /></label>
+        <button id="setting-adaptive-contrast" class="setting-row toggle" title="背景较亮或透明时自动改用深色文字">自动对比色 <span></span></button>
+        <button id="setting-launch-at-login" class="setting-row toggle">开机自动运行 <span></span></button>
+        <div class="storage-row"><label for="storage-path">数据保存位置</label><div><input id="storage-path" readonly title="当前备忘录数据文件" /><button id="choose-storage-path">更改</button></div></div>
+        <button id="create-desktop-shortcut" class="shortcut-button">创建桌面图标</button>
+        <label class="setting-row completed-visibility">完成后主页显示 <select id="completed-visibility"><option value="immediate">立即隐藏</option><option value="today">保留到今天结束</option><option value="24h">保留 24 小时</option></select></label>
+        <button id="setting-window-lock" class="setting-row toggle">固定窗口位置与尺寸 <span></span></button>
+        <button id="setting-click-through" class="setting-row toggle">锁定交互并点击穿透 <span></span></button>
+        <button id="setting-topmost" class="setting-row toggle">始终置顶 <span></span></button>
+        <button id="quit-app" class="quit-button">退出备忘录</button>
+        <section class="analytics" aria-label="数据概览">
+          <p class="eyebrow">INSIGHTS</p>
+          <h3>Work overview</h3>
+          <p class="history-zh">数据概览</p>
+          <div class="metric-grid"><div><strong id="metric-total">0</strong><span>Total<br />全部</span></div><div><strong id="metric-open">0</strong><span>Open<br />待办</span></div><div><strong id="metric-done">0</strong><span>Done<br />完成</span></div></div>
+          <div class="chart-row"><div id="status-donut" class="status-donut"><span id="donut-label">0%</span></div><div class="chart-copy"><strong>Completion</strong><span>完成率</span><small id="completion-detail"></small></div></div>
+          <div id="category-chart" class="category-chart" aria-label="类别统计图"></div>
+          <section class="trend-chart" aria-label="历史趋势图">
+            <div class="trend-heading"><strong>Activity trend</strong><span>最近 7 天</span></div>
+            <svg id="history-trend" viewBox="0 0 280 112" role="img" aria-label="近七日事件历史折线图"></svg>
+          </section>
+          <div class="export-actions"><button id="export-json">Export JSON</button><button id="export-csv">Export CSV</button></div>
+        </section>
+        <section class="activity-panel" aria-label="活动记录">
+          <p class="eyebrow">ACTIVITY</p>
+          <h3>Event register</h3>
+          <p class="history-zh">事件台账</p>
+          <div class="event-register-wrap" tabindex="0" aria-label="事件台账可横向滚动区域">
+            <table class="event-register">
+              <thead><tr><th>工作</th><th>类别</th><th>优先级</th><th>状态</th><th>已创建</th><th>已更新</th><th>截止日期</th><th>操作</th></tr></thead>
+              <tbody id="event-register-body"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="trash-panel" aria-label="回收站">
+          <p class="eyebrow">RECYCLE BIN</p>
+          <h3>Deleted events</h3>
+          <p class="history-zh">已删除事件可恢复；永久清除后无法找回。</p>
+          <div id="trash-list" class="trash-list"></div>
+        </section>
+        <section class="release-history" aria-label="更新历史">
+          <button id="toggle-updates" class="release-heading" aria-expanded="true"><span><i class="eyebrow">UPDATES</i><strong>Update history</strong><small>更新历史</small></span><b aria-hidden="true">▾</b></button>
+          <div id="release-list" class="release-list">
+            <article><time>2026-10-19</time><strong>v2.0.0 · App launch and data location</strong><span>设置页可创建桌面图标、设置开机自动运行，并迁移数据保存位置。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.9 · Animated seven-segment clock</strong><span>数字切换时各段会缓亮、缓灭，并加入轻微呼吸光效。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.8 · Refined clock scale</strong><span>七段数码管时钟缩小为更精致的比例。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.7 · Seven-segment clock</strong><span>时钟数字改为横竖发光段组成的数码管显示。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.6 · Mechanical clock numerals</strong><span>仅更新右上角时钟数字为等宽机械仪表风格。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.5 · Refined queue spacing</strong><span>保持固定行高，卡片间距微调为 4px。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.4 · Fixed queue row spacing</strong><span>事件队列不再拉伸空白行；卡片之间保持 2px 紧凑间距。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.3 · Tighter event queue</strong><span>还原日期与时间输入布局，并缩小主页事件卡片之间的间距。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.2 · Default reminder and compact options</strong><span>类别与提前提醒合并为同一行；提前提醒默认设为 1 天。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.1 · Compact date and time inputs</strong><span>日期与可选时间现在以紧凑组合显示，方便连续选择。</span></article>
+            <article><time>2026-10-19</time><strong>v1.9.0 · Date-only events and custom reminders</strong><span>事件卡片固定高度；日期可不填时间，并支持自定义提前提醒天数。</span></article>
+            <article><time>2026-10-19</time><strong>v1.8.2 · Lock-aware action dock</strong><span>锁定交互后会自动收起快捷栏；点击三箭头即可解除锁定并展开。</span></article>
+            <article><time>2026-10-19</time><strong>v1.8.1 · Scoped adaptive contrast</strong><span>自动对比色现在仅作用于主页事件卡片，其他界面保持原有风格。</span></article>
+            <article><time>2026-10-19</time><strong>v1.8.0 · Adaptive contrast</strong><span>透明或浅色背景时自动使用深色文字；可在显示设置中关闭。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.9 · Removed the hidden drawer remainder</strong><span>收起时，隐藏的快捷按钮不再保留任何灰色占位区域。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.8 · Trimmed the drawer edge</strong><span>展开时，连续背景会刚好收在加号按钮边缘，不再留下灰色尾部。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.7 · Unified drawer layer and corrected pulse order</strong><span>箭头光波顺序已修正；收纳把手与展开条现在由同一背景层绘制。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.6 · Directional drawer pulse</strong><span>收起与展开状态使用相反方向的光波脉冲，并对齐按钮与箭头高度。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.5 · Serialized local saves</strong><span>所有创建、更新和设置写入现已串行化，避免并发覆盖新事件。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.4 · Unified drawer surface</strong><span>保留原抽屉方向，令展开条与收纳箭头使用同一连续背景。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.3 · Continuous right-side drawer</strong><span>抽屉改为从右向左展开，并使用与备忘录一致的连续玻璃背景。</span></article>
+            <article><time>2026-10-19</time><strong>v1.7.2 · Strict interaction lock</strong><span>开启交互锁后，只有锁本身可点击，其他快捷操作均会穿透。</span></article>
+            <article><time>2026-10-16</time><strong>v1.7.1 · Compact triple-chevron drawer handle</strong><span>将收纳把手收窄，并改为三个依次脉冲的箭头。</span></article>
+            <article><time>2026-10-16</time><strong>v1.7.0 · Manual action drawer</strong><span>右侧新增可手动展开、收起的快捷功能抽屉与脉冲箭头。</span></article>
+            <article><time>2026-10-16</time><strong>v1.6.0 · Restored direct action buttons</strong><span>撤销轮盘交互，恢复右下角的直接功能按钮。</span></article>
+            <article><time>2026-10-16</time><strong>v1.5.0 · Compact right-side wheel and clarified controls</strong><span>轮盘缩小并移至右下角；图钉与交互锁使用独立、清晰的状态。</span></article>
+            <article><time>2026-10-16</time><strong>v1.4.0 · Collapsible action wheel</strong><span>左下角改为玻璃能量轮盘，可旋转选择并按中心键执行。</span></article>
+            <article><time>2026-10-16</time><strong>v1.2.0 · Pin and click-through interaction lock</strong><span>图钉固定窗口位置与尺寸；锁定交互后鼠标可直接点击底层页面。</span></article>
+            <article><time>2026-10-16</time><strong>v1.1.0 · Completed item visibility</strong><span>完成事件默认立即从主页隐藏，也可选择保留到当天结束或 24 小时。</span></article>
+            <article><time>2026-10-16</time><strong>v1.0.0 · Register actions</strong><span>事件台账新增删除操作，删除后移入回收站。</span></article>
+            <article><time>2026-10-16</time><strong>v0.9.0 · Recycle bin, theme palette, and preview sliders</strong><span>删除事件进入回收站；调整透明度时可预览主页，并支持自定义主题色。</span></article>
+            <article><time>2026-10-16</time><strong>v0.8.0 · Separate lock and always-on-top controls</strong><span>窗口锁定与始终置顶可独立控制，解锁后仍可保持置顶。</span></article>
+            <article><time>2026-10-16</time><strong>v0.7.0 · Register, trend chart, and Jira-style export</strong><span>添加台账式历史、近七日折线点图，并将 CSV 导出调整为台账列。</span></article>
+            <article><time>2026-10-16</time><strong>v0.6.0 · Insights, activity log, and export</strong><span>添加数据图表、独立活动记录和 JSON / CSV 导出。</span></article>
+            <article><time>2026-10-16</time><strong>v0.5.0 · Categories, filters, and deadline alerts</strong><span>添加类别筛选、开始/截止排序，以及临期与逾期警示。</span></article>
+            <article><time>2026-10-16</time><strong>v0.4.1 · Expanded resize zones and compact header</strong><span>扩大边缘缩放范围，并将左上角精简为 Memo。</span></article>
+            <article><time>2026-10-16</time><strong>v0.4.0 · Window lock and activity records</strong><span>锁定窗口尺寸与位置，并记录事件的创建和完成时间。</span></article>
+            <article><time>2026-10-16</time><strong>v0.3.2 · Resizable queue</strong><span>支持从边缘和四角缩放，队列空间不足时自动滚动。</span></article>
+            <article><time>2026-10-16</time><strong>v0.3.1 · Start and deadline fields</strong><span>添加事件时可手动选择开始时间与截止时间。</span></article>
+          </div>
+        </section>
+      </section>
+    </main>
+    <div class="resize-handle top" data-edge="top"></div>
+    <div class="resize-handle right" data-edge="right"></div>
+    <div class="resize-handle bottom" data-edge="bottom"></div>
+    <div class="resize-handle left" data-edge="left"></div>
+    <div class="resize-handle top-left" data-edge="top-left"></div>
+    <div class="resize-handle top-right" data-edge="top-right"></div>
+    <div class="resize-handle bottom-left" data-edge="bottom-left"></div>
+    <div class="resize-handle bottom-right" data-edge="bottom-right"></div>
+    <script src="renderer.js"></script>
+  </body>
+</html>

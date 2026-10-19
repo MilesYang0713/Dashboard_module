@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+*.log
+*.lnk
+
+# Local memo data belongs to the user's private storage, not the source repository.
+steward-memo.json
+memo-storage.json
