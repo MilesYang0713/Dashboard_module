@@ -39,6 +39,4 @@ For feature details, controls, local data behavior, and architecture, see the [M
 
 ## Adding a component / 新增组件
 
-**English:** Add each new widget or app in its own top-level folder. Include a bilingual `README.md` with its purpose, setup steps, controls, storage behavior, and any integrations. Then add a row and an anchored section to this catalog.
 
-**中文：** 每个新小组件或应用都放在独立的一级目录中，并提供双语 `README.md`，说明用途、安装步骤、操作方式、数据保存与外部集成。随后在本目录页中添加一行索引和一个可跳转的锚点介绍区块。
