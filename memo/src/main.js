@@ -4,6 +4,11 @@ const path = require('node:path');
 const { DepartmentRegistry } = require('./core/contracts');
 const memoEvents = require('./departments/memo-events');
 
+// Keep Memo's private data and Electron profile beside the official component,
+// rather than in the Windows roaming profile.
+const memoDataDirectory = path.join(app.getAppPath(), 'data');
+app.setPath('userData', path.join(memoDataDirectory, 'runtime'));
+
 const registry = new DepartmentRegistry();
 registry.register(memoEvents);
 
@@ -29,8 +34,8 @@ app.on('second-instance', () => {
 });
 
 async function configureStoragePath() {
-  const defaultPath = path.join(app.getPath('userData'), 'steward-memo.json');
-  storageConfigPath = path.join(app.getPath('userData'), 'memo-storage.json');
+  const defaultPath = path.join(memoDataDirectory, 'steward-memo.json');
+  storageConfigPath = path.join(memoDataDirectory, 'memo-storage.json');
   try {
     const config = JSON.parse(await fs.readFile(storageConfigPath, 'utf8'));
     statePath = typeof config.statePath === 'string' && path.isAbsolute(config.statePath) ? config.statePath : defaultPath;
