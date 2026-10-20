@@ -15,6 +15,19 @@ let clickThroughPassthrough = false;
 let stateWriteQueue = Promise.resolve();
 const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true } };
 
+// Keep one Memo window for this user-data profile. Starting the desktop or
+// startup shortcut again simply returns focus to the existing Memo window,
+// avoiding competing in-memory views of the same event file.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+
+app.on('second-instance', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
+
 async function configureStoragePath() {
   const defaultPath = path.join(app.getPath('userData'), 'steward-memo.json');
   storageConfigPath = path.join(app.getPath('userData'), 'memo-storage.json');
