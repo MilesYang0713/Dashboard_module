@@ -1,0 +1,2 @@
+# Private, machine-local data must never be present in an npm release.
+data/

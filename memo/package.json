@@ -4,9 +4,15 @@
   "private": true,
   "description": "A local-first desktop memo manager with an extensible department interface.",
   "main": "src/main.js",
+  "files": [
+    "src/",
+    "README.md",
+    "package.json"
+  ],
   "scripts": {
     "start": "electron .",
-    "test": "node --test"
+    "test": "node --test && node scripts/verify-private-data.js",
+    "verify:private-data": "node scripts/verify-private-data.js"
   },
   "devDependencies": {
     "electron": "^38.0.0"

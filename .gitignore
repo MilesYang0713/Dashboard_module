@@ -1,2 +1,3 @@
-# Private local Memo events, storage preferences and Electron runtime files.
-memo/data/
+# NEVER commit private Memo events, storage preferences or Electron runtime files.
+# This rule is intentionally versioned with the repository.
+/memo/data/
