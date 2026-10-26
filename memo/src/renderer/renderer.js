@@ -574,6 +574,15 @@ async function boot() {
     window.steward.setClickThroughHotspot(actionHotspotActive || scrollHotspotActive);
   };
   document.addEventListener('mousemove', updateInteractionHotspots);
+  // The browse rail is deliberately a sibling of the scrollable list: cards
+  // underneath remain click-through when interaction lock is on. A wheel event
+  // received by the rail would otherwise have no scrollable ancestor, so pass
+  // it on to the list explicitly.
+  $('#locked-scroll-rail').addEventListener('wheel', (event) => {
+    if (!clickThroughEnabled) return;
+    event.preventDefault();
+    $('#event-list').scrollBy({ top: event.deltaY, left: 0, behavior: 'auto' });
+  }, { passive: false });
   $('.floating-actions').addEventListener('mouseleave', () => {
     if (!clickThroughEnabled || !actionHotspotActive) return;
     actionHotspotActive = false;
