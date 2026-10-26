@@ -8,6 +8,25 @@
 | Component / 组件 | Description / 简介 | Documentation / 文档 |
 | --- | --- | --- |
 | [Memo](#memo) | Local-first Windows desktop memo with event queues, reminders, analytics, and a transparent always-on-top window. / 本地优先的 Windows 桌面备忘录，含事件队列、提醒、数据概览和透明置顶窗口。 | [Open Memo README / 打开 Memo 说明](memo/README.md) |
+| [Steward](#steward) | Local-first workspace steward that routes typed or clipboard tasks to explicitly approved departments. / 本地优先的工作区总管，可把输入或剪贴板任务路由到明确授权的部门。 | [Open Steward README / 打开总管说明](steward/README.md) |
+
+---
+
+<a id="steward"></a>
+
+## Steward — Workspace Steward / 工作区总管
+
+**English**
+
+Steward is the single interaction point for the component workspace. It can receive a typed request or clipboard text, then call an explicitly approved department through a local-only interface. Its first connection is Memo, which records natural-language notes as local events. Future apps and plugins can use the same manifest-and-action contract, while each action stays limited to the permissions you explicitly approve.
+
+**中文**
+
+Steward 是组件工作区的单一交互入口。它可以接收输入内容或剪贴板文本，并通过仅本地的接口调用明确获批的部门。首个接入部门为 Memo：将自然语言事项记录为本地事件。未来应用和插件可复用同一套“清单 + 动作”合同，但每个动作仍仅限于你明确批准的权限范围。
+
+See [Steward README / 总管完整说明](steward/README.md) for launch, privacy, and integration details.
+
+启动、隐私与接入细节请看 [Steward README / 总管完整说明](steward/README.md)。
 
 ---
 

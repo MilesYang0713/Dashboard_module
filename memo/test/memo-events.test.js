@@ -45,3 +45,38 @@ test('stores a date-only deadline and a custom reminder without inventing a time
   assert.equal(event.dueAt, null);
   assert.equal(event.reminderDays, 7);
 });
+
+test('understands mixed course, quiz and month.day notation without an API', () => {
+  const event = parseEvent('5339 quizz 10.25', new Date(2026, 9, 23, 9, 0));
+  assert.equal(event.courseCode, '5339');
+  assert.equal(event.category, 'learning');
+  assert.equal(event.dueDate, '2026-10-25');
+  assert.equal(event.dueAt, null);
+  assert.equal(event.title, '5339 quizz');
+});
+
+test('understands next-week Chinese weekdays and English clock time', () => {
+  const event = parseEvent('下周五 5339 quiz at 3pm', new Date(2026, 9, 23, 9, 0));
+  const deadline = new Date(event.dueAt);
+  assert.equal(event.category, 'learning');
+  assert.equal(deadline.getFullYear(), 2026);
+  assert.equal(deadline.getMonth(), 9);
+  assert.equal(deadline.getDate(), 30);
+  assert.equal(deadline.getHours(), 15);
+});
+
+test('keeps date-only deadlines date-only and recognises important English or Chinese wording', () => {
+  const event = parseEvent('明天考试截止日期蛮重要', new Date(2026, 9, 23, 9, 0));
+  assert.equal(event.category, 'learning');
+  assert.equal(event.priority, 'medium');
+  assert.equal(event.dueDate, '2026-10-24');
+  assert.equal(event.dueAt, null);
+});
+
+test('understands English month names and course identifiers', () => {
+  const event = parseEvent('COMP5339 Quiz Oct 25 important', new Date(2026, 9, 23, 9, 0));
+  assert.equal(event.courseCode, 'COMP5339');
+  assert.equal(event.category, 'learning');
+  assert.equal(event.priority, 'medium');
+  assert.equal(event.dueDate, '2026-10-25');
+});

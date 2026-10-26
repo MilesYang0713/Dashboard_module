@@ -1,11 +1,12 @@
 {
   "name": "steward-memo",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "A local-first desktop memo manager with an extensible department interface.",
   "main": "src/main.js",
   "files": [
     "src/",
+    "steward.department.json",
     "README.md",
     "package.json"
   ],
@@ -15,9 +16,9 @@
     "verify:private-data": "node scripts/verify-private-data.js"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "45.0.0"
   },
   "allowScripts": {
-    "electron@38.8.6": true
+    "electron@45.0.0": true
   }
 }

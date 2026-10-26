@@ -1,3 +1,5 @@
 # NEVER commit private Memo events, storage preferences or Electron runtime files.
 # This rule is intentionally versioned with the repository.
 /memo/data/
+/steward/data/
+/steward/node_modules/

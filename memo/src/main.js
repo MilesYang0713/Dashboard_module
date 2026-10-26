@@ -3,6 +3,8 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { DepartmentRegistry } = require('./core/contracts');
 const memoEvents = require('./departments/memo-events');
+const { createLocalBridge } = require('./transport/local-bridge');
+const stewardManifest = require('../steward.department.json');
 
 // Keep Memo's private data and Electron profile beside the official component,
 // rather than in the Windows roaming profile.
@@ -18,6 +20,7 @@ let storageConfigPath;
 let clickThroughEnabled = false;
 let clickThroughPassthrough = false;
 let stateWriteQueue = Promise.resolve();
+let stewardBridge;
 const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true } };
 
 // Keep one Memo window for this user-data profile. Starting the desktop or
@@ -118,11 +121,39 @@ function mutateState(mutator) {
     const state = await loadState();
     const result = await mutator(state);
     await saveState(state);
+    mainWindow?.webContents.send('steward-state-changed', state);
     return result;
   });
   // Keep later writes available even if one write fails.
   stateWriteQueue = operation.catch(() => undefined);
   return operation;
+}
+
+async function captureMemoEvent(payload) {
+  const result = await registry.execute('memo-events', 'capture', { ...payload, nowISO: new Date().toISOString() });
+  if (result.status !== 'completed') return result;
+  return mutateState((state) => {
+    state.events = sortEvents([result.event, ...state.events]);
+    return { ...result, state };
+  });
+}
+
+async function stewardOverview() {
+  const state = await loadState();
+  return {
+    status: 'completed',
+    events: sortEvents(state.events).slice(0, 12).map(({ id, title, dueAt, dueDate, startAt, startDate, category, priority, completed }) => ({ id, title, dueAt, dueDate, startAt, startDate, category, priority, completed }))
+  };
+}
+
+async function handleStewardRequest(request) {
+  if (!request || request.protocol !== 'steward.department/v1') throw new Error('不支持的总管协议版本。');
+  if (request.method === 'manifest') return { manifest: stewardManifest };
+  if (request.method !== 'execute') throw new Error('不支持的本地桥接方法。');
+  const action = request.params?.action;
+  if (action === 'capture') return captureMemoEvent(request.params?.payload || {});
+  if (action === 'list') return stewardOverview();
+  throw new Error(`Memo 不支持动作：${action || '未指定'}`);
 }
 
 function sortEvents(events) {
@@ -194,6 +225,8 @@ async function applySavedWindowSettings() {
 
 app.whenReady().then(async () => {
   await configureStoragePath();
+  stewardBridge = createLocalBridge({ pipeName: stewardManifest.transport.endpoint, handleRequest: handleStewardRequest });
+  await stewardBridge.start();
   createWindow();
   await applySavedWindowSettings();
   globalShortcut.register('CommandOrControl+Alt+M', toggleWindow);
@@ -202,7 +235,10 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', (event) => event.preventDefault());
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  stewardBridge?.stop().catch(() => undefined);
+});
 
 ipcMain.handle('bootstrap', async () => ({ state: await loadState(), departments: registry.list(), storage: await storageDetails() }));
 ipcMain.handle('set-launch-at-login', async (_event, enabled) => ({ launchAtLogin: await setLaunchAtLogin(Boolean(enabled)) }));
@@ -231,12 +267,7 @@ ipcMain.handle('choose-storage-directory', async () => {
   return { canceled: false, state: currentState, storage: await storageDetails() };
 });
 ipcMain.handle('capture-event', async (_event, payload) => {
-  const result = await registry.execute('memo-events', 'capture', { ...payload, nowISO: new Date().toISOString() });
-  if (result.status !== 'completed') return result;
-  return mutateState((state) => {
-    state.events = sortEvents([result.event, ...state.events]);
-    return { ...result, state };
-  });
+  return captureMemoEvent(payload);
 });
 ipcMain.handle('update-event', async (_event, id, patch) => {
   return mutateState((state) => {

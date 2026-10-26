@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Steward 总管</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">LOCAL-FIRST PERSONAL WORKSPACE</p>
+        <h1>Steward <span>总管</span></h1>
+        <p class="lede">把一句话或剪贴板交给我；我只会调用你已登记、已授权的本地部门。</p>
+      </header>
+
+      <section class="capture-card" aria-labelledby="capture-title">
+        <div class="section-heading"><h2 id="capture-title">现在要处理什么？</h2><span id="memo-status" class="status">检查中</span></div>
+        <textarea id="request" maxlength="4000" placeholder="例如：明天下午三点和张总开会，准备报价单"></textarea>
+        <div class="actions">
+          <button id="capture" class="primary">交给备忘录</button>
+          <button id="clipboard">从剪贴板记录</button>
+          <button id="launch" class="subtle">启动 Memo</button>
+        </div>
+        <p id="result" class="result" role="status">Memo 的操作仅写入本机数据，不会联网。</p>
+      </section>
+
+      <section class="grid">
+        <article>
+          <div class="section-heading"><h2>已登记的部门</h2><button id="refresh" class="icon" title="刷新状态">↻</button></div>
+          <div id="departments" class="departments"></div>
+          <p id="issues" class="issues"></p>
+        </article>
+        <article>
+          <div class="section-heading"><h2>Memo 概览</h2><span id="count" class="count"></span></div>
+          <ol id="events" class="events"><li class="muted">正在读取本地事件概览…</li></ol>
+        </article>
+      </section>
+    </main>
+    <script src="renderer.js"></script>
+  </body>
+</html>

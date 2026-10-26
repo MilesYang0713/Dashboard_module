@@ -4,6 +4,7 @@ let activeCategory = 'all';
 let sortField = 'dueAt';
 let clickThroughEnabled = false;
 let actionHotspotActive = false;
+let scrollHotspotActive = false;
 
 const $ = (selector) => document.querySelector(selector);
 const categoryLabels = { task: '事情', learning: '学习', shopping: '购物', life: '生活', other: '其他' };
@@ -271,6 +272,7 @@ function render() {
   document.body.classList.toggle('adaptive-contrast', adaptiveContrast);
   document.body.classList.toggle('contrast-dark-ink', adaptiveContrast && Number(state.settings.backgroundOpacity) <= 0.54);
   document.body.classList.toggle('window-unlocked', !state.settings.windowLocked);
+  document.body.classList.toggle('interaction-scroll-locked', clickThroughEnabled);
   $('#setting-window-lock').classList.toggle('active', state.settings.windowLocked);
   $('#setting-topmost').classList.toggle('active', state.settings.alwaysOnTop);
   $('#setting-adaptive-contrast').classList.toggle('active', adaptiveContrast);
@@ -450,6 +452,7 @@ async function boot() {
     $('#dock-toggle').setAttribute('aria-expanded', 'false');
     $('#dock-toggle').title = '展开并解除交互锁定';
     actionHotspotActive = false;
+    scrollHotspotActive = false;
     if (clickThroughEnabled) window.steward.setClickThroughHotspot(false);
   };
   $('#setting-click-through').addEventListener('click', async () => {
@@ -500,22 +503,40 @@ async function boot() {
   window.addEventListener('pointerup', () => $('#settings-sheet').classList.remove('previewing'));
   document.querySelectorAll('.close-sheet').forEach((button) => button.addEventListener('click', () => closeSheet(button.dataset.close)));
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') document.querySelectorAll('.sheet.open').forEach((sheet) => closeSheet(sheet.id)); });
-  document.addEventListener('mousemove', (event) => {
+  const isPointerInside = (event, element) => {
+    const rect = element.getBoundingClientRect();
+    return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  };
+  const updateInteractionHotspots = (event) => {
     if (!clickThroughEnabled) return;
-    const rect = $('#dock-toggle').getBoundingClientRect();
-    const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-    if (inside === actionHotspotActive) return;
-    actionHotspotActive = inside;
-    window.steward.setClickThroughHotspot(inside);
-  });
+    const nextActionHotspot = isPointerInside(event, $('#dock-toggle'));
+    const nextScrollHotspot = isPointerInside(event, $('#event-list'));
+    if (nextActionHotspot === actionHotspotActive && nextScrollHotspot === scrollHotspotActive) return;
+    actionHotspotActive = nextActionHotspot;
+    scrollHotspotActive = nextScrollHotspot;
+    window.steward.setClickThroughHotspot(actionHotspotActive || scrollHotspotActive);
+  };
+  document.addEventListener('mousemove', updateInteractionHotspots);
   $('.floating-actions').addEventListener('mouseleave', () => {
     if (!clickThroughEnabled || !actionHotspotActive) return;
     actionHotspotActive = false;
-    window.steward.setClickThroughHotspot(false);
+    window.steward.setClickThroughHotspot(scrollHotspotActive);
   });
+  document.addEventListener('click', (event) => {
+    if (!clickThroughEnabled || event.target.closest('#dock-toggle')) return;
+    // The list temporarily receives pointer input so that native wheel
+    // scrolling works, but no locked-mode click may edit Memo or hit below it.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
   window.steward.onClickThroughChanged((enabled) => {
     clickThroughEnabled = enabled;
     if (enabled) collapseDockForInteractionLock();
+    else { actionHotspotActive = false; scrollHotspotActive = false; }
+    render();
+  });
+  window.steward.onStateChanged((nextState) => {
+    state = nextState;
     render();
   });
   renderClock();

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "integrations": [
+    {
+      "id": "memo",
+      "manifest": "../memo/steward.department.json",
+      "enabled": true,
+      "approvedActions": ["capture", "list"]
+    }
+  ]
+}
