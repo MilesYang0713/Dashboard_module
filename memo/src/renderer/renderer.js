@@ -510,7 +510,7 @@ async function boot() {
   const updateInteractionHotspots = (event) => {
     if (!clickThroughEnabled) return;
     const nextActionHotspot = isPointerInside(event, $('#dock-toggle'));
-    const nextScrollHotspot = isPointerInside(event, $('#event-list'));
+    const nextScrollHotspot = isPointerInside(event, $('#locked-scroll-rail'));
     if (nextActionHotspot === actionHotspotActive && nextScrollHotspot === scrollHotspotActive) return;
     actionHotspotActive = nextActionHotspot;
     scrollHotspotActive = nextScrollHotspot;
@@ -524,8 +524,8 @@ async function boot() {
   });
   document.addEventListener('click', (event) => {
     if (!clickThroughEnabled || event.target.closest('#dock-toggle')) return;
-    // The list temporarily receives pointer input so that native wheel
-    // scrolling works, but no locked-mode click may edit Memo or hit below it.
+    // The narrow browse rail temporarily receives pointer input for native
+    // wheel scrolling, but no locked-mode click may edit Memo.
     event.preventDefault();
     event.stopImmediatePropagation();
   }, true);

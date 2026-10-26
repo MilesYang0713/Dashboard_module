@@ -1,7 +1,23 @@
-/* In interaction-lock mode, cards remain view-only while this small cue marks
-   the list as a safe wheel-scrolling surface. */
-.interaction-scroll-locked .event-list {
+/* Event cards stay click-through while the narrow right-side rail is the only
+   input surface used to scroll the locked list. */
+#locked-scroll-rail {
+  display: none;
+}
+
+.interaction-scroll-locked .events-section {
+  position: relative;
+}
+
+.interaction-scroll-locked #locked-scroll-rail {
+  position: absolute;
+  z-index: 2;
+  top: 30px;
+  right: 0;
+  bottom: 56px;
+  display: block;
+  width: 12px;
   cursor: ns-resize;
-  outline: 1px dashed rgba(189, 205, 255, .35);
-  outline-offset: 2px;
+  border-left: 1px dashed rgba(189, 205, 255, .48);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(189, 205, 255, .12), rgba(189, 205, 255, .02));
 }
