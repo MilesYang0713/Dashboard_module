@@ -278,6 +278,8 @@ ipcMain.handle('update-event', async (_event, id, patch) => {
       if (typeof patch.completed === 'boolean' && patch.completed !== item.completed) {
         updated.completedAt = patch.completed ? now : null;
         updated.history = [...(item.history || []), { type: patch.completed ? 'completed' : 'reopened', at: now }];
+      } else if (Object.keys(patch).some((key) => key !== 'completed' && patch[key] !== item[key])) {
+        updated.history = [...(item.history || []), { type: 'updated', at: now }];
       }
       return updated;
     }));

@@ -5,6 +5,7 @@ let sortField = 'dueAt';
 let clickThroughEnabled = false;
 let actionHotspotActive = false;
 let scrollHotspotActive = false;
+let editingEventId = null;
 
 const $ = (selector) => document.querySelector(selector);
 const categoryLabels = { task: '事情', learning: '学习', shopping: '购物', life: '生活', other: '其他' };
@@ -32,6 +33,20 @@ const formatActivity = (item) => {
 };
 
 const priorityLabels = { high: '最高', medium: '高', normal: '普通' };
+
+const dateInputValue = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  const pad = (part) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const timeInputValue = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  const pad = (part) => String(part).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 function eventAlert(item) {
   if (item.completed) return null;
@@ -301,9 +316,10 @@ function render() {
     card.innerHTML = `
       <button class="done" aria-label="完成事件">${item.completed ? '✓' : ''}</button>
       <div class="event-copy"><p class="event-title"></p><p class="event-meta"><span>${formatSchedule(item)}</span><span class="category-chip">${categoryLabels[item.category] || '事情'}</span></p>${alert ? `<p class="event-alert">${alert.label}</p>` : ''}</div>
-      <button class="delete" aria-label="删除事件">×</button>`;
+      <div class="event-actions"><button class="edit" aria-label="修改事件" title="修改事件">✎</button><button class="delete" aria-label="删除事件">×</button></div>`;
     card.querySelector('.event-title').textContent = item.title;
     card.querySelector('.done').addEventListener('click', async () => { state = await window.steward.updateEvent(item.id, { completed: !item.completed }); render(); });
+    card.querySelector('.edit').addEventListener('click', () => openEventEditor(item));
     card.querySelector('.delete').addEventListener('click', async () => { state = await window.steward.deleteEvent(item.id); render(); });
     list.append(card);
   }
@@ -359,6 +375,35 @@ function renderClock() {
   clock.dataset.value = value;
 }
 
+function resetEventEditor() {
+  editingEventId = null;
+  $('#capture-sheet-title').textContent = '添加事件';
+  $('#capture-button').textContent = '添加';
+  $('#memo').value = '';
+  $('#event-category').value = 'task';
+  $('#event-priority').value = 'auto';
+  $('#start-date').value = '';
+  $('#start-time').value = '';
+  $('#due-date').value = '';
+  $('#due-time').value = '';
+  $('#reminder-days').value = '1';
+}
+
+function openEventEditor(item) {
+  editingEventId = item.id;
+  $('#capture-sheet-title').textContent = '修改事件';
+  $('#capture-button').textContent = '保存修改';
+  $('#memo').value = item.title || '';
+  $('#event-category').value = item.category || 'task';
+  $('#event-priority').value = item.priority || 'normal';
+  $('#start-date').value = item.startDate || dateInputValue(item.startAt);
+  $('#start-time').value = timeInputValue(item.startAt);
+  $('#due-date').value = item.dueDate || dateInputValue(item.dueAt);
+  $('#due-time').value = timeInputValue(item.dueAt);
+  $('#reminder-days').value = Number.isInteger(Number(item.reminderDays)) ? String(item.reminderDays) : '1';
+  openSheet('capture-sheet');
+}
+
 async function capture() {
   const input = $('#memo');
   const startDate = $('#start-date').value || null;
@@ -366,9 +411,20 @@ async function capture() {
   const startAt = startDate && $('#start-time').value ? new Date(`${startDate}T${$('#start-time').value}`).toISOString() : null;
   const dueAt = dueDate && $('#due-time').value ? new Date(`${dueDate}T${$('#due-time').value}`).toISOString() : null;
   const category = $('#event-category').value;
+  const priority = $('#event-priority').value;
   const reminderDays = Number($('#reminder-days').value) || 0;
-  const result = await window.steward.captureEvent({ text: input.value, startDate, startAt, dueDate, dueAt, reminderDays, category });
-  if (result.state) { state = result.state; input.value = ''; $('#start-date').value = ''; $('#start-time').value = ''; $('#due-date').value = ''; $('#due-time').value = ''; $('#reminder-days').value = '1'; render(); closeSheet('capture-sheet'); }
+  if (editingEventId) {
+    const title = input.value.trim();
+    if (!title) { showToast('事件内容不能为空。'); return; }
+    state = await window.steward.updateEvent(editingEventId, { title, category, priority: priority === 'auto' ? 'normal' : priority, startDate: startAt ? null : startDate, startAt, dueDate: dueAt ? null : dueDate, dueAt, reminderDays });
+    resetEventEditor();
+    render();
+    closeSheet('capture-sheet');
+    showToast('事件已修改。');
+    return;
+  }
+  const result = await window.steward.captureEvent({ text: input.value, startDate, startAt, dueDate, dueAt, reminderDays, category, priority });
+  if (result.state) { state = result.state; resetEventEditor(); render(); closeSheet('capture-sheet'); }
   showToast(result.summary);
 }
 
@@ -383,6 +439,7 @@ function closeSheet(id) {
   const sheet = $(`#${id}`);
   sheet.classList.remove('open');
   sheet.setAttribute('aria-hidden', 'true');
+  if (id === 'capture-sheet') resetEventEditor();
 }
 
 function setupResizeHandles() {

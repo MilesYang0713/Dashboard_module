@@ -192,7 +192,8 @@ function inferCourseCode(text) {
 }
 
 function parseEvent(text, now, overrides = {}) {
-  const priority = /紧急|马上|立刻|\b(?:urgent|asap|immediately)\b/i.test(text) ? 'high' : /重要|尽快|\b(?:important|high priority)\b/i.test(text) ? 'medium' : 'normal';
+  const inferredPriority = /紧急|马上|立刻|\b(?:urgent|asap|immediately)\b/i.test(text) ? 'high' : /重要|尽快|\b(?:important|high priority)\b/i.test(text) ? 'medium' : 'normal';
+  const priority = ['high', 'medium', 'normal'].includes(overrides.priority) ? overrides.priority : inferredPriority;
   const schedule = parseSchedule(text, now);
   return {
     id: crypto.randomUUID(),

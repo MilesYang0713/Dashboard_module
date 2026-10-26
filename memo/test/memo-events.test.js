@@ -36,6 +36,11 @@ test('uses the selected category when creating an event', () => {
   assert.equal(event.category, 'shopping');
 });
 
+test('uses a selected priority over inferred wording', () => {
+  const event = parseEvent('紧急整理会议纪要', new Date('2026-10-15T09:00:00+11:00'), { priority: 'normal' });
+  assert.equal(event.priority, 'normal');
+});
+
 test('stores a date-only deadline and a custom reminder without inventing a time', () => {
   const event = parseEvent('提交申请', new Date('2026-10-15T09:00:00+11:00'), {
     dueDate: '2026-10-27',

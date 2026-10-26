@@ -6,6 +6,7 @@
     <title>备忘录</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="locked-scroll.css" />
+    <link rel="stylesheet" href="event-edit.css" />
   </head>
   <body>
     <main class="panel">
@@ -45,10 +46,11 @@
       </div>
 
       <section id="capture-sheet" class="sheet no-drag" aria-hidden="true">
-        <div class="sheet-heading"><div><p class="eyebrow">备忘与事件部</p><h2>添加事件</h2></div><button class="close-sheet" data-close="capture-sheet">×</button></div>
+        <div class="sheet-heading"><div><p class="eyebrow">备忘与事件部</p><h2 id="capture-sheet-title">添加事件</h2></div><button class="close-sheet" data-close="capture-sheet">×</button></div>
         <textarea id="memo" rows="3" placeholder="例如：明天下午 3 点和张总开会，准备报价单"></textarea>
         <div class="capture-options">
           <label class="category-field">类别：<select id="event-category"><option value="task">事情</option><option value="learning">学习</option><option value="shopping">购物</option><option value="life">生活</option><option value="other">其他</option></select></label>
+          <label class="category-field">优先级：<select id="event-priority"><option value="auto">自动</option><option value="high">最高</option><option value="medium">高</option><option value="normal">普通</option></select></label>
           <label class="reminder-field">提前提醒 <input id="reminder-days" type="number" min="0" max="365" step="1" value="1" /> <span>天（默认 1 天）</span></label>
         </div>
         <div class="date-fields">
@@ -107,6 +109,7 @@
         <section class="release-history" aria-label="更新历史">
           <button id="toggle-updates" class="release-heading" aria-expanded="true"><span><i class="eyebrow">UPDATES</i><strong>Update history</strong><small>更新历史</small></span><b aria-hidden="true">▾</b></button>
           <div id="release-list" class="release-list">
+            <article><time>2026-10-26</time><strong>v2.1.2 · Event editing</strong><span>每张事件卡片在删除按钮左侧增加修改按钮，可更新内容、类别、优先级、日期和提醒；修改会写入事件历史。</span></article>
             <article><time>2026-10-26</time><strong>v2.1.1 · Click-through browsing rail</strong><span>锁定状态下，事件卡片点击继续穿透到底层；右侧窄浏览轨道专用于滚轮查看 Memo。</span></article>
             <article><time>2026-10-26</time><strong>v2.1.0 · Locked scrolling</strong><span>交互锁定后，事件列表可用鼠标滚轮浏览；所有点击仍被锁定，不会修改事件或误点底层页面。</span></article>
             <article><time>2026-10-19</time><strong>v2.0.0 · App launch and data location</strong><span>设置页可创建桌面图标、设置开机自动运行，并迁移数据保存位置。</span></article>

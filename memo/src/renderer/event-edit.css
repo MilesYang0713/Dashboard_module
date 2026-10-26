@@ -1,0 +1,4 @@
+.event { grid-template-columns: 24px minmax(0, 1fr) 52px; }
+.event-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.edit { width: 22px; height: 22px; border-radius: 7px; background: transparent; color: #aeb7df; font-size: 15px; line-height: 1; opacity: .76; }
+.edit:hover { color: #d9d4ff; background: rgba(151, 139, 255, .16); opacity: 1; }
