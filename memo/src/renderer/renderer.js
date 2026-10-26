@@ -5,6 +5,7 @@ let sortField = 'dueAt';
 let clickThroughEnabled = false;
 let actionHotspotActive = false;
 let scrollHotspotActive = false;
+let scrollHotspotReleaseTimer = null;
 let editingEventId = null;
 
 const $ = (selector) => document.querySelector(selector);
@@ -564,25 +565,44 @@ async function boot() {
     const rect = element.getBoundingClientRect();
     return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
   };
+  const releaseScrollHotspot = () => {
+    scrollHotspotReleaseTimer = null;
+    if (!clickThroughEnabled || !scrollHotspotActive) return;
+    scrollHotspotActive = false;
+    window.steward.setClickThroughHotspot(actionHotspotActive);
+  };
+  const armScrollHotspot = () => {
+    if (!clickThroughEnabled) return;
+    if (!scrollHotspotActive) {
+      scrollHotspotActive = true;
+      window.steward.setClickThroughHotspot(true);
+    }
+    clearTimeout(scrollHotspotReleaseTimer);
+    // Native Windows input must briefly target Memo to deliver a wheel event.
+    // Return to click-through as soon as browsing pauses.
+    scrollHotspotReleaseTimer = setTimeout(releaseScrollHotspot, 650);
+  };
   const updateInteractionHotspots = (event) => {
     if (!clickThroughEnabled) return;
     const nextActionHotspot = isPointerInside(event, $('#dock-toggle'));
-    const nextScrollHotspot = isPointerInside(event, $('#locked-scroll-rail'));
-    if (nextActionHotspot === actionHotspotActive && nextScrollHotspot === scrollHotspotActive) return;
+    const nextScrollHotspot = isPointerInside(event, $('#event-list')) || isPointerInside(event, $('#locked-scroll-rail'));
+    if (nextScrollHotspot) armScrollHotspot();
+    else if (scrollHotspotActive) releaseScrollHotspot();
+    if (nextActionHotspot === actionHotspotActive) return;
     actionHotspotActive = nextActionHotspot;
-    scrollHotspotActive = nextScrollHotspot;
     window.steward.setClickThroughHotspot(actionHotspotActive || scrollHotspotActive);
   };
   document.addEventListener('mousemove', updateInteractionHotspots);
-  // The browse rail is deliberately a sibling of the scrollable list: cards
-  // underneath remain click-through when interaction lock is on. A wheel event
-  // received by the rail would otherwise have no scrollable ancestor, so pass
-  // it on to the list explicitly.
-  $('#locked-scroll-rail').addEventListener('wheel', (event) => {
+  const browseLockedList = (event) => {
     if (!clickThroughEnabled) return;
     event.preventDefault();
     $('#event-list').scrollBy({ top: event.deltaY, left: 0, behavior: 'auto' });
-  }, { passive: false });
+    armScrollHotspot();
+  };
+  // In locked mode, hover any event card and use the wheel. The short
+  // auto-release preserves click-through once the user finishes browsing.
+  $('#event-list').addEventListener('wheel', browseLockedList, { passive: false });
+  $('#locked-scroll-rail').addEventListener('wheel', browseLockedList, { passive: false });
   $('.floating-actions').addEventListener('mouseleave', () => {
     if (!clickThroughEnabled || !actionHotspotActive) return;
     actionHotspotActive = false;

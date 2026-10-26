@@ -1,5 +1,6 @@
-/* Event cards stay click-through while the narrow right-side rail is the only
-   input surface used to scroll the locked list. */
+/* The list arms browsing on hover. The narrow rail remains as a subtle fallback
+   guide for locked scrolling, while card clicks return to click-through after
+   a short browsing pause. */
 #locked-scroll-rail {
   display: none;
 }
@@ -15,7 +16,7 @@
   right: 0;
   bottom: 56px;
   display: block;
-  width: 12px;
+  width: 8px;
   cursor: ns-resize;
   border-left: 1px dashed rgba(189, 205, 255, .48);
   border-radius: 8px;
