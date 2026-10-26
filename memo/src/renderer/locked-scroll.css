@@ -1,6 +1,4 @@
-/* The list arms browsing on hover. The narrow rail remains as a subtle fallback
-   guide for locked scrolling, while card clicks return to click-through after
-   a short browsing pause. */
+/* Hovering the list briefly arms scrolling, then restores click-through. */
 #locked-scroll-rail {
   display: none;
 }

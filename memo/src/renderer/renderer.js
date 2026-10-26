@@ -571,7 +571,7 @@ async function boot() {
     scrollHotspotActive = false;
     window.steward.setClickThroughHotspot(actionHotspotActive);
   };
-  const armScrollHotspot = () => {
+  const armScrollHotspot = (releaseDelay = 100) => {
     if (!clickThroughEnabled) return;
     if (!scrollHotspotActive) {
       scrollHotspotActive = true;
@@ -580,13 +580,15 @@ async function boot() {
     clearTimeout(scrollHotspotReleaseTimer);
     // Native Windows input must briefly target Memo to deliver a wheel event.
     // Return to click-through as soon as browsing pauses.
-    scrollHotspotReleaseTimer = setTimeout(releaseScrollHotspot, 650);
+    scrollHotspotReleaseTimer = setTimeout(releaseScrollHotspot, releaseDelay);
   };
   const updateInteractionHotspots = (event) => {
     if (!clickThroughEnabled) return;
     const nextActionHotspot = isPointerInside(event, $('#dock-toggle'));
     const nextScrollHotspot = isPointerInside(event, $('#event-list')) || isPointerInside(event, $('#locked-scroll-rail'));
-    if (nextScrollHotspot) armScrollHotspot();
+    // Give a newly-hovered card a brief window to receive the first wheel tick;
+    // after actual scrolling, the shorter delay below takes over.
+    if (nextScrollHotspot) armScrollHotspot(350);
     else if (scrollHotspotActive) releaseScrollHotspot();
     if (nextActionHotspot === actionHotspotActive) return;
     actionHotspotActive = nextActionHotspot;
@@ -597,10 +599,8 @@ async function boot() {
     if (!clickThroughEnabled) return;
     event.preventDefault();
     $('#event-list').scrollBy({ top: event.deltaY, left: 0, behavior: 'auto' });
-    armScrollHotspot();
+    armScrollHotspot(100);
   };
-  // In locked mode, hover any event card and use the wheel. The short
-  // auto-release preserves click-through once the user finishes browsing.
   $('#event-list').addEventListener('wheel', browseLockedList, { passive: false });
   $('#locked-scroll-rail').addEventListener('wheel', browseLockedList, { passive: false });
   $('.floating-actions').addEventListener('mouseleave', () => {
