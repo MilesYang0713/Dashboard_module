@@ -2,20 +2,6 @@
    the list as a safe wheel-scrolling surface. */
 .interaction-scroll-locked .event-list {
   cursor: ns-resize;
-}
-
-.interaction-scroll-locked .event-list::after {
-  position: sticky;
-  right: 6px;
-  bottom: 5px;
-  display: block;
-  width: max-content;
-  margin-left: auto;
-  padding: 2px 5px;
-  border-radius: 99px;
-  color: #dbe2ff;
-  background: rgba(20, 24, 43, .68);
-  content: '滚动浏览 · 已锁定';
-  font-size: 8px;
-  pointer-events: none;
+  outline: 1px dashed rgba(189, 205, 255, .35);
+  outline-offset: 2px;
 }
