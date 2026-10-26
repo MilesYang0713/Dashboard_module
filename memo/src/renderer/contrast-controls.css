@@ -1,0 +1,18 @@
+/* Keep the primary queue controls readable when the adaptive light-background
+   mode is active, matching the event-card contrast treatment. */
+body.contrast-dark-ink :is(.drag-region h1, .filter-control, .section-heading > span) {
+  color: #142039;
+  text-shadow: none;
+}
+
+body.contrast-dark-ink :is(.filter-control select, .sort-control) {
+  border-color: rgba(20, 32, 57, .42);
+  color: #142039;
+  background: rgba(255, 255, 255, .5);
+  color-scheme: light;
+}
+
+body.contrast-dark-ink :is(.filter-control select, .sort-control) option {
+  color: #142039;
+  background: #f6f8ff;
+}
