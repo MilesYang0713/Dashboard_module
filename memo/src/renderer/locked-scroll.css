@@ -1,21 +1,24 @@
-/* In interaction-lock mode, cards remain view-only while this small cue marks
-   the list as a safe wheel-scrolling surface. */
-.interaction-scroll-locked .event-list {
-  cursor: ns-resize;
+/* The list arms browsing on hover. The narrow rail remains as a subtle fallback
+   guide for locked scrolling, while card clicks return to click-through after
+   a short browsing pause. */
+#locked-scroll-rail {
+  display: none;
 }
 
-.interaction-scroll-locked .event-list::after {
-  position: sticky;
-  right: 6px;
-  bottom: 5px;
+.interaction-scroll-locked .events-section {
+  position: relative;
+}
+
+.interaction-scroll-locked #locked-scroll-rail {
+  position: absolute;
+  z-index: 2;
+  top: 30px;
+  right: 0;
+  bottom: 56px;
   display: block;
-  width: max-content;
-  margin-left: auto;
-  padding: 2px 5px;
-  border-radius: 99px;
-  color: #dbe2ff;
-  background: rgba(20, 24, 43, .68);
-  content: '滚动浏览 · 已锁定';
-  font-size: 8px;
-  pointer-events: none;
+  width: 8px;
+  cursor: ns-resize;
+  border-left: 1px dashed rgba(189, 205, 255, .48);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(189, 205, 255, .12), rgba(189, 205, 255, .02));
 }
