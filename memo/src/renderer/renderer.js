@@ -53,17 +53,23 @@ const timeInputValue = (value) => {
 function eventAlert(item) {
   if (item.completed) return null;
   const now = Date.now();
+  const reminderDays = Number(item.reminderDays) || 0;
   const dueTime = eventTime(item, 'due', true);
   if (dueTime) {
     const hours = (dueTime - now) / 3_600_000;
     if (hours < 0) return { tone: 'overdue', label: '！已过截止时间' };
     if (hours <= 6) return { tone: 'urgent', label: '！6 小时内截止' };
     if (hours <= 12) return { tone: 'soon', label: '！12 小时内截止' };
-    const reminderDays = Number(item.reminderDays) || 0;
     if (reminderDays > 0 && hours <= reminderDays * 24) return { tone: 'reminder', label: `！提前提醒：${Math.ceil(hours / 24)} 天后截止` };
   }
   const startTime = eventTime(item, 'start');
-  if (startTime && startTime < now) return { tone: 'started', label: '！已过开始时间' };
+  if (startTime) {
+    const hours = (startTime - now) / 3_600_000;
+    if (hours < 0) return { tone: 'started', label: '！已过开始时间' };
+    if (hours <= 6) return { tone: 'start-urgent', label: '！6 小时内开始' };
+    if (hours <= 12) return { tone: 'start-soon', label: '！12 小时内开始' };
+    if (reminderDays > 0 && hours <= reminderDays * 24) return { tone: 'start-reminder', label: `！提前提醒：${Math.ceil(hours / 24)} 天后开始` };
+  }
   return null;
 }
 

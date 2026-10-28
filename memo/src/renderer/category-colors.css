@@ -32,14 +32,20 @@ body.contrast-dark-ink .event .category-chip {
 .event.alert-overdue,
 .event.alert-urgent,
 .event.alert-soon,
-.event.alert-reminder {
+.event.alert-reminder,
+.event.alert-start-urgent,
+.event.alert-start-soon,
+.event.alert-start-reminder {
   position: relative;
 }
 
 .event.alert-overdue::after,
 .event.alert-urgent::after,
 .event.alert-soon::after,
-.event.alert-reminder::after {
+.event.alert-reminder::after,
+.event.alert-start-urgent::after,
+.event.alert-start-soon::after,
+.event.alert-start-reminder::after {
   position: absolute;
   top: 8px;
   bottom: 8px;
@@ -53,6 +59,10 @@ body.contrast-dark-ink .event .category-chip {
   animation: deadline-rail-breathe 1.7s ease-in-out infinite;
 }
 
+.event.alert-start-urgent .event-alert { color: #80ceff; }
+.event.alert-start-soon .event-alert { color: #9adaff; }
+.event.alert-start-reminder .event-alert { color: #b1e6ff; }
+
 @keyframes deadline-rail-breathe {
   0%, 100% { opacity: .45; box-shadow: 0 0 2px color-mix(in srgb, var(--event-category-color) 30%, transparent); }
   50% { opacity: 1; box-shadow: 0 0 11px 2px color-mix(in srgb, var(--event-category-color) 78%, transparent); }
@@ -62,5 +72,8 @@ body.contrast-dark-ink .event .category-chip {
   .event.alert-overdue::after,
   .event.alert-urgent::after,
   .event.alert-soon::after,
-  .event.alert-reminder::after { animation: none; opacity: 1; }
+  .event.alert-reminder::after,
+  .event.alert-start-urgent::after,
+  .event.alert-start-soon::after,
+  .event.alert-start-reminder::after { animation: none; opacity: 1; }
 }
