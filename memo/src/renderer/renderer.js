@@ -1,7 +1,7 @@
 let state;
 let storage;
 let activeCategory = 'all';
-let sortField = 'dueAt';
+let sortField = 'time';
 let clickThroughEnabled = false;
 let actionHotspotActive = false;
 let scrollHotspotActive = false;
@@ -69,6 +69,19 @@ function eventAlert(item) {
 function sortEvents(items) {
   return [...items].sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    if (sortField === 'time') {
+      const aStart = eventTime(a, 'start');
+      const bStart = eventTime(b, 'start');
+      const aDue = eventTime(a, 'due', true);
+      const bDue = eventTime(b, 'due', true);
+      // An event with both dates is scheduled from its start. An event with
+      // only one date uses that one; equal starts break ties by deadline.
+      const aPrimary = aStart ?? aDue ?? Number.POSITIVE_INFINITY;
+      const bPrimary = bStart ?? bDue ?? Number.POSITIVE_INFINITY;
+      const aSecondary = aStart == null ? Number.POSITIVE_INFINITY : aDue ?? Number.POSITIVE_INFINITY;
+      const bSecondary = bStart == null ? Number.POSITIVE_INFINITY : bDue ?? Number.POSITIVE_INFINITY;
+      return aPrimary - bPrimary || aSecondary - bSecondary || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }
     const kind = sortField === 'dueAt' ? 'due' : 'start';
     const aTime = eventTime(a, kind, kind === 'due') ?? Number.POSITIVE_INFINITY;
     const bTime = eventTime(b, kind, kind === 'due') ?? Number.POSITIVE_INFINITY;
