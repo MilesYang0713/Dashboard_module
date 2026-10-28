@@ -10,6 +10,7 @@ let editingEventId = null;
 
 const $ = (selector) => document.querySelector(selector);
 const categoryLabels = { task: '事情', learning: '学习', shopping: '购物', life: '生活', other: '其他' };
+const categoryAccents = { task: '#9c8cff', learning: '#65b9ff', shopping: '#ffb560', life: '#62d39a', other: '#f28ab8' };
 const formatTime = (time) => time ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(time)) : null;
 const formatDateOnly = (date) => date ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00`)) : null;
 const eventTime = (item, kind, endOfDay = false) => {
@@ -326,7 +327,9 @@ function render() {
   for (const item of visibleEvents) {
     const alert = eventAlert(item);
     const card = document.createElement('article');
-    card.className = `event priority-${item.priority}${item.completed ? ' completed' : ''}${alert ? ` alert-${alert.tone}` : ''}`;
+    const category = item.category || 'task';
+    card.className = `event category-${category} priority-${item.priority}${item.completed ? ' completed' : ''}${alert ? ` alert-${alert.tone}` : ''}`;
+    card.style.setProperty('--event-category-color', categoryAccents[category] || categoryAccents.task);
     card.innerHTML = `
       <button class="done" aria-label="完成事件">${item.completed ? '✓' : ''}</button>
       <div class="event-copy"><p class="event-title"></p><p class="event-meta"><span>${formatSchedule(item)}</span><span class="category-chip">${categoryLabels[item.category] || '事情'}</span></p>${alert ? `<p class="event-alert">${alert.label}</p>` : ''}</div>

@@ -1,0 +1,28 @@
+/* Category colour is carried by the card's left rail and its label. Alerts
+   continue to use their own text colours, so urgency remains unmistakable. */
+.event.category-task { --event-category-color: #9c8cff; }
+.event.category-learning { --event-category-color: #65b9ff; }
+.event.category-shopping { --event-category-color: #ffb560; }
+.event.category-life { --event-category-color: #62d39a; }
+.event.category-other { --event-category-color: #f28ab8; }
+
+.event.category-task,
+.event.category-learning,
+.event.category-shopping,
+.event.category-life,
+.event.category-other {
+  border-left-color: var(--event-category-color) !important;
+}
+
+.event .category-chip {
+  border: 1px solid color-mix(in srgb, var(--event-category-color) 48%, transparent);
+  color: color-mix(in srgb, var(--event-category-color) 68%, white) !important;
+  background: color-mix(in srgb, var(--event-category-color) 20%, transparent) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .1);
+}
+
+body.contrast-dark-ink .event .category-chip {
+  color: color-mix(in srgb, var(--event-category-color) 76%, #142039) !important;
+  border-color: color-mix(in srgb, var(--event-category-color) 62%, #142039);
+  background: color-mix(in srgb, var(--event-category-color) 26%, rgba(255, 255, 255, .5)) !important;
+}
