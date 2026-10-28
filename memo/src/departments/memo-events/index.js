@@ -179,6 +179,20 @@ function validReminderDays(value) {
   return Number.isInteger(days) && days > 0 && days <= 365 ? days : 0;
 }
 
+function scheduleTimestamp(event, kind) {
+  const instantKey = kind === 'start' ? 'startAt' : 'dueAt';
+  const dateKey = kind === 'start' ? 'startDate' : 'dueDate';
+  if (event[instantKey]) return new Date(event[instantKey]).getTime();
+  if (event[dateKey]) return new Date(`${event[dateKey]}T${kind === 'due' ? '23:59:59.999' : '00:00:00'}`).getTime();
+  return null;
+}
+
+function hasValidSchedule(event) {
+  const start = scheduleTimestamp(event, 'start');
+  const due = scheduleTimestamp(event, 'due');
+  return start == null || due == null || due >= start;
+}
+
 function inferCategory(text) {
   if (/买|采购|超市|购物|下单/.test(text)) return 'shopping';
   if (/学习|作业|课程|复习|考试|测验|小测|\b(?:quiz|quizz|test|exam|assignment|homework|course|lecture)\b/i.test(text)) return 'learning';
@@ -221,10 +235,11 @@ async function execute(action, payload) {
   if (!text) return { status: 'needs_input', summary: '请先告诉总管一件要记录的事。', requiresApproval: false };
   const now = payload?.nowISO ? new Date(payload.nowISO) : new Date();
   const event = parseEvent(text, now, payload);
+  if (!hasValidSchedule(event)) return { status: 'needs_input', summary: '截止时间不能早于开始时间，请调整日期或时间。', requiresApproval: false };
   const formatter = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
   const dateFormatter = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium' });
   const timing = event.dueAt ? `截止 ${formatter.format(new Date(event.dueAt))}` : event.dueDate ? `截止 ${dateFormatter.format(new Date(`${event.dueDate}T12:00:00`))}（全天）` : event.startAt ? `开始 ${formatter.format(new Date(event.startAt))}` : event.startDate ? `开始 ${dateFormatter.format(new Date(`${event.startDate}T12:00:00`))}（全天）` : '尚未指定时间';
   return { status: 'completed', event, summary: `已记录「${event.title}」，${timing}。`, requiresApproval: false };
 }
 
-module.exports = { manifest, execute, parseEvent, parseSchedule };
+module.exports = { manifest, execute, parseEvent, parseSchedule, hasValidSchedule };

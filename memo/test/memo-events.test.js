@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseEvent } = require('../src/departments/memo-events');
+const { parseEvent, hasValidSchedule } = require('../src/departments/memo-events');
 
 test('extracts a relative day, afternoon time and high priority', () => {
   const event = parseEvent('明天下午 3 点紧急和张总开会', new Date('2026-10-15T09:00:00+11:00'));
@@ -84,4 +84,20 @@ test('understands English month names and course identifiers', () => {
   assert.equal(event.category, 'learning');
   assert.equal(event.priority, 'medium');
   assert.equal(event.dueDate, '2026-10-25');
+});
+
+test('rejects schedules whose deadline is before their start', () => {
+  const event = parseEvent('错误的会议时间', new Date('2026-10-15T09:00:00+11:00'), {
+    startAt: '2026-10-22T09:00:00.000Z',
+    dueAt: '2026-10-22T08:00:00.000Z'
+  });
+  assert.equal(hasValidSchedule(event), false);
+});
+
+test('accepts a date-only deadline on the same day as a start', () => {
+  const event = parseEvent('当天完成的任务', new Date('2026-10-15T09:00:00+11:00'), {
+    startAt: '2026-10-22T09:00:00.000Z',
+    dueDate: '2026-10-22'
+  });
+  assert.equal(hasValidSchedule(event), true);
 });

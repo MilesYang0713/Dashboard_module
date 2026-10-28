@@ -54,23 +54,31 @@ function eventAlert(item) {
   if (item.completed) return null;
   const now = Date.now();
   const reminderDays = Number(item.reminderDays) || 0;
-  const dueTime = eventTime(item, 'due', true);
-  if (dueTime) {
-    const hours = (dueTime - now) / 3_600_000;
-    if (hours < 0) return { tone: 'overdue', label: '！已过截止时间' };
-    if (hours <= 6) return { tone: 'urgent', label: '！6 小时内截止' };
-    if (hours <= 12) return { tone: 'soon', label: '！12 小时内截止' };
-    if (reminderDays > 0 && hours <= reminderDays * 24) return { tone: 'reminder', label: `！提前提醒：${Math.ceil(hours / 24)} 天后截止` };
-  }
   const startTime = eventTime(item, 'start');
-  if (startTime) {
-    const hours = (startTime - now) / 3_600_000;
-    if (hours < 0) return { tone: 'started', label: '！已过开始时间' };
-    if (hours <= 6) return { tone: 'start-urgent', label: '！6 小时内开始' };
-    if (hours <= 12) return { tone: 'start-soon', label: '！12 小时内开始' };
-    if (reminderDays > 0 && hours <= reminderDays * 24) return { tone: 'start-reminder', label: `！提前提醒：${Math.ceil(hours / 24)} 天后开始` };
+  const dueTime = eventTime(item, 'due', true);
+  if (dueTime && dueTime < now) return { tone: 'overdue', label: '！已过截止时间' };
+  if (startTime && startTime < now && !dueTime) return { tone: 'started', label: '！已过开始时间' };
+
+  // The advance reminder follows the first upcoming moment: start when there
+  // is one, otherwise deadline. After a start has passed, deadline is next.
+  const nextKind = startTime != null && startTime >= now ? 'start' : dueTime != null ? 'due' : null;
+  const nextTime = nextKind === 'start' ? startTime : dueTime;
+  if (nextTime != null) {
+    const hours = (nextTime - now) / 3_600_000;
+    const verb = nextKind === 'start' ? '开始' : '截止';
+    const tonePrefix = nextKind === 'start' ? 'start-' : '';
+    if (hours <= 6) return { tone: `${tonePrefix}urgent`, label: `！6 小时内${verb}` };
+    if (hours <= 12) return { tone: `${tonePrefix}soon`, label: `！12 小时内${verb}` };
+    if (reminderDays > 0 && hours <= reminderDays * 24) return { tone: `${tonePrefix}reminder`, label: `！提前提醒：${Math.ceil(hours / 24)} 天后${verb}` };
   }
+  if (startTime && startTime < now) return { tone: 'started', label: '！已过开始时间' };
   return null;
+}
+
+function isScheduleInputValid({ startDate, startAt, dueDate, dueAt }) {
+  const start = startAt ? new Date(startAt).getTime() : startDate ? new Date(`${startDate}T00:00:00`).getTime() : null;
+  const due = dueAt ? new Date(dueAt).getTime() : dueDate ? new Date(`${dueDate}T23:59:59.999`).getTime() : null;
+  return start == null || due == null || due >= start;
 }
 
 function sortEvents(items) {
@@ -436,6 +444,10 @@ async function capture() {
   const category = $('#event-category').value;
   const priority = $('#event-priority').value;
   const reminderDays = Number($('#reminder-days').value) || 0;
+  if (!isScheduleInputValid({ startDate, startAt, dueDate, dueAt })) {
+    showToast('截止时间不能早于开始时间。');
+    return;
+  }
   if (editingEventId) {
     const title = input.value.trim();
     if (!title) { showToast('事件内容不能为空。'); return; }

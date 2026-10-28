@@ -275,6 +275,7 @@ ipcMain.handle('update-event', async (_event, id, patch) => {
     state.events = sortEvents(state.events.map((item) => {
       if (item.id !== id) return item;
       const updated = { ...item, ...patch, updatedAt: now };
+      if (!memoEvents.hasValidSchedule(updated)) throw new Error('截止时间不能早于开始时间。');
       if (typeof patch.completed === 'boolean' && patch.completed !== item.completed) {
         updated.completedAt = patch.completed ? now : null;
         updated.history = [...(item.history || []), { type: patch.completed ? 'completed' : 'reopened', at: now }];
