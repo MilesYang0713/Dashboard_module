@@ -26,3 +26,41 @@ body.contrast-dark-ink .event .category-chip {
   border-color: color-mix(in srgb, var(--event-category-color) 62%, #142039);
   background: color-mix(in srgb, var(--event-category-color) 26%, rgba(255, 255, 255, .5)) !important;
 }
+
+/* Deadline-related alerts breathe through the category-colour rail without
+   replacing its meaning with a generic warning colour. */
+.event.alert-overdue,
+.event.alert-urgent,
+.event.alert-soon,
+.event.alert-reminder {
+  position: relative;
+}
+
+.event.alert-overdue::after,
+.event.alert-urgent::after,
+.event.alert-soon::after,
+.event.alert-reminder::after {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 99px 99px 0;
+  background: var(--event-category-color);
+  box-shadow: 0 0 0 color-mix(in srgb, var(--event-category-color) 0%, transparent);
+  content: '';
+  pointer-events: none;
+  animation: deadline-rail-breathe 1.7s ease-in-out infinite;
+}
+
+@keyframes deadline-rail-breathe {
+  0%, 100% { opacity: .45; box-shadow: 0 0 2px color-mix(in srgb, var(--event-category-color) 30%, transparent); }
+  50% { opacity: 1; box-shadow: 0 0 11px 2px color-mix(in srgb, var(--event-category-color) 78%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event.alert-overdue::after,
+  .event.alert-urgent::after,
+  .event.alert-soon::after,
+  .event.alert-reminder::after { animation: none; opacity: 1; }
+}
