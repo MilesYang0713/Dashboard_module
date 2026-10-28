@@ -11,7 +11,7 @@
 .event.category-shopping,
 .event.category-life,
 .event.category-other {
-  border-left-color: var(--event-category-color) !important;
+  border-left-color: var(--event-category-color);
 }
 
 .event .category-chip {
@@ -27,8 +27,8 @@ body.contrast-dark-ink .event .category-chip {
   background: color-mix(in srgb, var(--event-category-color) 26%, rgba(255, 255, 255, .5)) !important;
 }
 
-/* Deadline-related alerts breathe through the category-colour rail without
-   replacing its meaning with a generic warning colour. */
+/* Deadline-related alerts breathe through the original full-height category
+   rail, without adding a second, misaligned strip. */
 .event.alert-overdue,
 .event.alert-urgent,
 .event.alert-soon,
@@ -36,27 +36,7 @@ body.contrast-dark-ink .event .category-chip {
 .event.alert-start-urgent,
 .event.alert-start-soon,
 .event.alert-start-reminder {
-  position: relative;
-}
-
-.event.alert-overdue::after,
-.event.alert-urgent::after,
-.event.alert-soon::after,
-.event.alert-reminder::after,
-.event.alert-start-urgent::after,
-.event.alert-start-soon::after,
-.event.alert-start-reminder::after {
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 0;
-  width: 3px;
-  border-radius: 0 99px 99px 0;
-  background: var(--event-category-color);
-  box-shadow: 0 0 0 color-mix(in srgb, var(--event-category-color) 0%, transparent);
-  content: '';
-  pointer-events: none;
-  animation: deadline-rail-breathe 1.7s ease-in-out infinite;
+  animation: deadline-rail-breathe 1.45s ease-in-out infinite;
 }
 
 .event.alert-start-urgent .event-alert { color: #80ceff; }
@@ -64,16 +44,22 @@ body.contrast-dark-ink .event .category-chip {
 .event.alert-start-reminder .event-alert { color: #b1e6ff; }
 
 @keyframes deadline-rail-breathe {
-  0%, 100% { opacity: .45; box-shadow: 0 0 2px color-mix(in srgb, var(--event-category-color) 30%, transparent); }
-  50% { opacity: 1; box-shadow: 0 0 11px 2px color-mix(in srgb, var(--event-category-color) 78%, transparent); }
+  0%, 100% {
+    border-left-color: color-mix(in srgb, var(--event-category-color) 42%, transparent);
+    box-shadow: inset 3px 0 2px color-mix(in srgb, var(--event-category-color) 26%, transparent);
+  }
+  50% {
+    border-left-color: var(--event-category-color);
+    box-shadow: inset 4px 0 12px color-mix(in srgb, var(--event-category-color) 88%, transparent);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .event.alert-overdue::after,
-  .event.alert-urgent::after,
-  .event.alert-soon::after,
-  .event.alert-reminder::after,
-  .event.alert-start-urgent::after,
-  .event.alert-start-soon::after,
-  .event.alert-start-reminder::after { animation: none; opacity: 1; }
+  .event.alert-overdue,
+  .event.alert-urgent,
+  .event.alert-soon,
+  .event.alert-reminder,
+  .event.alert-start-urgent,
+  .event.alert-start-soon,
+  .event.alert-start-reminder { animation: none; }
 }
