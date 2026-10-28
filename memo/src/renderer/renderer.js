@@ -20,14 +20,21 @@ const eventTime = (item, kind, endOfDay = false) => {
   if (item[dateKey]) return new Date(`${item[dateKey]}T${endOfDay ? '23:59:59.999' : '00:00:00'}`).getTime();
   return null;
 };
-const formatSchedule = (item) => {
-  const parts = [];
-  if (item.startAt) parts.push(`开始 ${formatTime(item.startAt)}`);
-  else if (item.startDate) parts.push(`开始 ${formatDateOnly(item.startDate)}（全天）`);
-  if (item.dueAt) parts.push(`截止 ${formatTime(item.dueAt)}`);
-  else if (item.dueDate) parts.push(`截止 ${formatDateOnly(item.dueDate)}（全天）`);
-  return parts.join(' · ') || '待确定时间';
+const formatSchedulePoint = (item, kind) => {
+  const instantKey = kind === 'start' ? 'startAt' : 'dueAt';
+  const dateKey = kind === 'start' ? 'startDate' : 'dueDate';
+  if (item[instantKey]) {
+    const date = new Date(item[instantKey]);
+    const pad = (part) => String(part).padStart(2, '0');
+    return `${date.getMonth() + 1}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+  if (item[dateKey]) {
+    const [year, month, day] = item[dateKey].split('-');
+    return `${Number(month)}.${day}`;
+  }
+  return null;
 };
+const formatSchedule = (item) => [formatSchedulePoint(item, 'start'), formatSchedulePoint(item, 'due')].filter(Boolean).join(' — ');
 const formatActivity = (item) => {
   const created = item.createdAt ? `创建 ${formatTime(item.createdAt)}` : null;
   const completed = item.completedAt ? `完成 ${formatTime(item.completedAt)}` : null;
@@ -342,11 +349,12 @@ function render() {
     const alert = eventAlert(item);
     const card = document.createElement('article');
     const category = item.category || 'task';
+    const schedule = formatSchedule(item);
     card.className = `event category-${category} priority-${item.priority}${item.completed ? ' completed' : ''}${alert ? ` alert-${alert.tone}` : ''}`;
     card.style.setProperty('--event-category-color', categoryAccents[category] || categoryAccents.task);
     card.innerHTML = `
       <button class="done" aria-label="完成事件">${item.completed ? '✓' : ''}</button>
-      <div class="event-copy"><p class="event-title"></p><p class="event-meta"><span>${formatSchedule(item)}</span><span class="category-chip">${categoryLabels[item.category] || '事情'}</span></p>${alert ? `<p class="event-alert">${alert.label}</p>` : ''}</div>
+      <div class="event-copy"><p class="event-title"></p><p class="event-meta">${schedule ? `<span>${schedule}</span>` : ''}<span class="category-chip">${categoryLabels[item.category] || '事情'}</span></p>${alert ? `<p class="event-alert">${alert.label}</p>` : ''}</div>
       <div class="event-actions"><button class="edit" aria-label="修改事件" title="修改事件">✎</button><button class="delete" aria-label="删除事件">×</button></div>`;
     card.querySelector('.event-title').textContent = item.title;
     card.querySelector('.done').addEventListener('click', async () => { state = await window.steward.updateEvent(item.id, { completed: !item.completed }); render(); });
