@@ -11,7 +11,7 @@
 .event.category-shopping,
 .event.category-life,
 .event.category-other {
-  border-left-color: var(--event-category-color);
+  border-left-color: var(--event-category-color) !important;
 }
 
 .event .category-chip {
@@ -27,8 +27,8 @@ body.contrast-dark-ink .event .category-chip {
   background: color-mix(in srgb, var(--event-category-color) 26%, rgba(255, 255, 255, .5)) !important;
 }
 
-/* Deadline-related alerts breathe through the original full-height category
-   rail, without adding a second, misaligned strip. */
+/* Deadline-related alerts breathe through an overlay precisely aligned with
+   the original full-height category rail. */
 .event.alert-overdue,
 .event.alert-urgent,
 .event.alert-soon,
@@ -36,6 +36,26 @@ body.contrast-dark-ink .event .category-chip {
 .event.alert-start-urgent,
 .event.alert-start-soon,
 .event.alert-start-reminder {
+  position: relative;
+}
+
+.event.alert-overdue::after,
+.event.alert-urgent::after,
+.event.alert-soon::after,
+.event.alert-reminder::after,
+.event.alert-start-urgent::after,
+.event.alert-start-soon::after,
+.event.alert-start-reminder::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  z-index: 1;
+  width: 3px;
+  border-radius: 10px 0 0 10px;
+  background: var(--event-category-color);
+  content: '';
+  pointer-events: none;
   animation: deadline-rail-breathe 1.45s ease-in-out infinite;
 }
 
@@ -45,21 +65,21 @@ body.contrast-dark-ink .event .category-chip {
 
 @keyframes deadline-rail-breathe {
   0%, 100% {
-    border-left-color: color-mix(in srgb, var(--event-category-color) 42%, transparent);
-    box-shadow: inset 3px 0 2px color-mix(in srgb, var(--event-category-color) 26%, transparent);
+    opacity: .4;
+    box-shadow: 0 0 2px color-mix(in srgb, var(--event-category-color) 25%, transparent);
   }
   50% {
-    border-left-color: var(--event-category-color);
-    box-shadow: inset 4px 0 12px color-mix(in srgb, var(--event-category-color) 88%, transparent);
+    opacity: 1;
+    box-shadow: 0 0 12px 2px color-mix(in srgb, var(--event-category-color) 88%, transparent);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .event.alert-overdue,
-  .event.alert-urgent,
-  .event.alert-soon,
-  .event.alert-reminder,
-  .event.alert-start-urgent,
-  .event.alert-start-soon,
-  .event.alert-start-reminder { animation: none; }
+  .event.alert-overdue::after,
+  .event.alert-urgent::after,
+  .event.alert-soon::after,
+  .event.alert-reminder::after,
+  .event.alert-start-urgent::after,
+  .event.alert-start-soon::after,
+  .event.alert-start-reminder::after { animation: none; opacity: 1; }
 }

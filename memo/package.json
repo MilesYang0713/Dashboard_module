@@ -1,6 +1,6 @@
 {
   "name": "steward-memo",
-  "version": "2.2.6",
+  "version": "2.2.7",
   "private": true,
   "description": "A local-first desktop memo manager with an extensible department interface.",
   "main": "src/main.js",
