@@ -1,0 +1,9 @@
+/* Keep reminder configuration visually separate from event classification. */
+#capture-sheet .reminder-row {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .035);
+}
