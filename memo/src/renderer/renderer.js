@@ -9,8 +9,15 @@ let scrollHotspotReleaseTimer = null;
 let editingEventId = null;
 
 const $ = (selector) => document.querySelector(selector);
-const categoryLabels = { task: '事情', learning: '学习', shopping: '购物', life: '生活', other: '其他' };
-const categoryAccents = { task: '#9c8cff', learning: '#65b9ff', shopping: '#ffb560', life: '#62d39a', other: '#f28ab8' };
+const defaultCategories = [
+  { id: 'task', label: '事情', color: '#9c8cff' },
+  { id: 'learning', label: '学习', color: '#65b9ff' },
+  { id: 'shopping', label: '购物', color: '#ffb560' },
+  { id: 'life', label: '生活', color: '#62d39a' },
+  { id: 'other', label: '其他', color: '#f28ab8' }
+];
+const categories = () => state?.settings?.categories?.length ? state.settings.categories : defaultCategories;
+const categoryFor = (id) => categories().find((item) => item.id === id) || categories()[0];
 const formatTime = (time) => time ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(time)) : null;
 const formatDateOnly = (date) => date ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00`)) : null;
 const eventTime = (item, kind, endOfDay = false) => {
@@ -137,7 +144,7 @@ function renderAnalytics() {
   $('#status-donut').style.background = `conic-gradient(${state.settings.themeColor} 0 ${completion}%, rgba(255,255,255,.11) ${completion}% 100%)`;
   $('#completion-detail').textContent = `${completed} / ${total} completed`;
 
-  const counts = Object.keys(categoryLabels).map((key) => ({ key, label: categoryLabels[key], count: events.filter((item) => item.category === key).length }));
+  const counts = categories().map((category) => ({ ...category, count: events.filter((item) => item.category === category.id).length }));
   const max = Math.max(1, ...counts.map((item) => item.count));
   const chart = $('#category-chart');
   chart.replaceChildren();
@@ -149,6 +156,7 @@ function renderAnalytics() {
     const track = document.createElement('i');
     const fill = document.createElement('b');
     fill.style.width = `${(item.count / max) * 100}%`;
+    fill.style.background = item.color;
     track.append(fill);
     const value = document.createElement('em');
     value.textContent = item.count;
@@ -221,7 +229,7 @@ function renderEventRegister(events) {
     const row = document.createElement('tr');
     const values = [
       item.title,
-      categoryLabels[item.category] || '事情',
+      categoryFor(item.category).label,
       priorityLabels[item.priority] || '普通',
       item.completed ? '完成' : '待办',
       formatTime(item.createdAt) || '—',
@@ -308,6 +316,70 @@ function showToast(text) {
   showToast.timer = setTimeout(() => { $('#toast').textContent = ''; }, 4200);
 }
 
+function populateCategorySelect(select, selected, includeAll = false) {
+  select.replaceChildren();
+  if (includeAll) {
+    const option = document.createElement('option');
+    option.value = 'all';
+    option.textContent = '全部';
+    select.append(option);
+  }
+  for (const category of categories()) {
+    const option = document.createElement('option');
+    option.value = category.id;
+    option.textContent = category.label;
+    select.append(option);
+  }
+  const valid = [...select.options].some((option) => option.value === selected);
+  select.value = valid ? selected : (includeAll ? 'all' : categories()[0].id);
+}
+
+async function saveCategories(nextCategories) {
+  state = await window.steward.setCategories(nextCategories);
+  if (activeCategory !== 'all' && !categories().some((category) => category.id === activeCategory)) activeCategory = 'all';
+  render();
+}
+
+function renderCategoryManager() {
+  const list = $('#category-manager-list');
+  list.replaceChildren();
+  const currentCategories = categories();
+  for (const category of currentCategories) {
+    const row = document.createElement('div');
+    row.className = 'category-manager-row';
+    const label = document.createElement('input');
+    label.type = 'text';
+    label.maxLength = 18;
+    label.value = category.label;
+    label.setAttribute('aria-label', `${category.label} 类别名称`);
+    const color = document.createElement('input');
+    color.type = 'color';
+    color.value = category.color;
+    color.setAttribute('aria-label', `${category.label} 类别颜色`);
+    const update = () => {
+      const next = currentCategories.map((item) => item.id === category.id ? { ...item, label: label.value.trim() || item.label, color: color.value } : item);
+      saveCategories(next);
+    };
+    label.addEventListener('change', update);
+    color.addEventListener('change', update);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '删除';
+    remove.disabled = currentCategories.length === 1;
+    remove.title = currentCategories.length === 1 ? '至少保留一个类别' : `删除 ${category.label}`;
+    remove.addEventListener('click', () => saveCategories(currentCategories.filter((item) => item.id !== category.id)));
+    row.append(label, color, remove);
+    list.append(row);
+  }
+}
+
+function renderCategoryControls() {
+  if (activeCategory !== 'all' && !categories().some((category) => category.id === activeCategory)) activeCategory = 'all';
+  populateCategorySelect($('#category-filter'), activeCategory, true);
+  populateCategorySelect($('#event-category'), $('#event-category').value || categories()[0].id);
+  renderCategoryManager();
+}
+
 function render() {
   const events = state.events || [];
   $('#event-count').textContent = `${events.filter((item) => !item.completed).length} 项待办`;
@@ -336,6 +408,7 @@ function render() {
   $('#toggle-click-through').classList.toggle('active', clickThroughEnabled);
   $('#toggle-click-through').textContent = clickThroughEnabled ? '🔒' : '🔓';
   $('#toggle-click-through').title = clickThroughEnabled ? '已锁定交互；只有此锁可点击以恢复交互' : '锁定交互，让鼠标点击底层页面';
+  renderCategoryControls();
   renderAnalytics();
   renderTrash();
   const list = $('#event-list');
@@ -348,13 +421,13 @@ function render() {
   for (const item of visibleEvents) {
     const alert = eventAlert(item);
     const card = document.createElement('article');
-    const category = item.category || 'task';
+    const category = categoryFor(item.category);
     const schedule = formatSchedule(item);
-    card.className = `event category-${category} priority-${item.priority}${item.completed ? ' completed' : ''}${alert ? ` alert-${alert.tone}` : ''}`;
-    card.style.setProperty('--event-category-color', categoryAccents[category] || categoryAccents.task);
+    card.className = `event category-${category.id} priority-${item.priority}${item.completed ? ' completed' : ''}${alert ? ` alert-${alert.tone}` : ''}`;
+    card.style.setProperty('--event-category-color', category.color);
     card.innerHTML = `
       <button class="done" aria-label="完成事件">${item.completed ? '✓' : ''}</button>
-      <div class="event-copy"><p class="event-title"></p><p class="event-meta">${schedule ? `<span>${schedule}</span>` : ''}<span class="category-chip">${categoryLabels[item.category] || '事情'}</span></p>${alert ? `<p class="event-alert">${alert.label}</p>` : ''}</div>
+      <div class="event-copy"><p class="event-title"></p><p class="event-meta">${schedule ? `<span>${schedule}</span>` : ''}<span class="category-chip">${category.label}</span></p>${alert ? `<p class="event-alert">${alert.label}</p>` : ''}</div>
       <div class="event-actions"><button class="edit" aria-label="修改事件" title="修改事件">✎</button><button class="delete" aria-label="删除事件">×</button></div>`;
     card.querySelector('.event-title').textContent = item.title;
     card.querySelector('.done').addEventListener('click', async () => { state = await window.steward.updateEvent(item.id, { completed: !item.completed }); render(); });
@@ -419,7 +492,7 @@ function resetEventEditor() {
   $('#capture-sheet-title').textContent = '添加事件';
   $('#capture-button').textContent = '添加';
   $('#memo').value = '';
-  $('#event-category').value = 'task';
+  $('#event-category').value = categories()[0].id;
   $('#event-priority').value = 'auto';
   $('#start-date').value = '';
   $('#start-time').value = '';
@@ -433,7 +506,7 @@ function openEventEditor(item) {
   $('#capture-sheet-title').textContent = '修改事件';
   $('#capture-button').textContent = '保存修改';
   $('#memo').value = item.title || '';
-  $('#event-category').value = item.category || 'task';
+  $('#event-category').value = categoryFor(item.category).id;
   $('#event-priority').value = item.priority || 'normal';
   $('#start-date').value = item.startDate || dateInputValue(item.startAt);
   $('#start-time').value = timeInputValue(item.startAt);
@@ -516,6 +589,14 @@ async function boot() {
   $('#capture-button').addEventListener('click', capture);
   $('#memo').addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') capture(); });
   $('#category-filter').addEventListener('change', (event) => { activeCategory = event.target.value; render(); });
+  $('#add-category').addEventListener('click', async () => {
+    const label = $('#new-category-label').value.trim();
+    if (!label) { showToast('请先填写类别名称。'); return; }
+    const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    await saveCategories([...categories(), { id, label, color: $('#new-category-color').value }]);
+    $('#new-category-label').value = '';
+    showToast(`已添加类别：${label}`);
+  });
   $('#sort-by').addEventListener('change', (event) => { sortField = event.target.value; render(); });
   $('#content-opacity').addEventListener('input', async (event) => { document.documentElement.style.setProperty('--content-opacity', event.target.value); state = await window.steward.setContentOpacity(event.target.value); });
   $('#background-opacity').addEventListener('input', async (event) => { state = await window.steward.setBackgroundOpacity(event.target.value); render(); });

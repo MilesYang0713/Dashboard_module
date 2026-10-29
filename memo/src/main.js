@@ -25,7 +25,27 @@ let clickThroughBeforeOrb = false;
 let orbDragOffset;
 let stateWriteQueue = Promise.resolve();
 let stewardBridge;
-const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true } };
+const defaultCategories = [
+  { id: 'task', label: '事情', color: '#9c8cff' },
+  { id: 'learning', label: '学习', color: '#65b9ff' },
+  { id: 'shopping', label: '购物', color: '#ffb560' },
+  { id: 'life', label: '生活', color: '#62d39a' },
+  { id: 'other', label: '其他', color: '#f28ab8' }
+];
+function normalizeCategories(categories) {
+  if (!Array.isArray(categories)) return defaultCategories.map((item) => ({ ...item }));
+  const seen = new Set();
+  const normalized = categories.flatMap((item) => {
+    const id = typeof item?.id === 'string' ? item.id.trim().toLowerCase() : '';
+    const label = typeof item?.label === 'string' ? item.label.trim().slice(0, 18) : '';
+    const color = typeof item?.color === 'string' && /^#[0-9a-f]{6}$/i.test(item.color) ? item.color : '';
+    if (!/^[a-z][a-z0-9-]{0,47}$/.test(id) || seen.has(id) || !label || !color) return [];
+    seen.add(id);
+    return [{ id, label, color }];
+  }).slice(0, 16);
+  return normalized.length ? normalized : defaultCategories.map((item) => ({ ...item }));
+}
+const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true, categories: defaultCategories } };
 
 // Keep one Memo window for this user-data profile. Starting the desktop or
 // startup shortcut again simply returns focus to the existing Memo window,
@@ -101,6 +121,7 @@ async function loadState() {
     if (saved.settings?.opacity != null && saved.settings?.contentOpacity == null) state.settings.contentOpacity = saved.settings.opacity;
     // Earlier versions used one setting for both topmost and window lock.
     if (saved.settings?.windowLocked == null) state.settings.windowLocked = saved.settings?.alwaysOnTop ?? true;
+    state.settings.categories = normalizeCategories(saved.settings?.categories);
     state.deletedEvents = state.deletedEvents || [];
     state.events = (state.events || []).map((item) => ({
       ...item,
@@ -137,6 +158,8 @@ async function captureMemoEvent(payload) {
   const result = await registry.execute('memo-events', 'capture', { ...payload, nowISO: new Date().toISOString() });
   if (result.status !== 'completed') return result;
   return mutateState((state) => {
+    const categoryIds = new Set(state.settings.categories.map((item) => item.id));
+    if (!categoryIds.has(result.event.category)) result.event.category = state.settings.categories[0].id;
     state.events = sortEvents([result.event, ...state.events]);
     return { ...result, state };
   });
@@ -319,6 +342,7 @@ ipcMain.handle('update-event', async (_event, id, patch) => {
     state.events = sortEvents(state.events.map((item) => {
       if (item.id !== id) return item;
       const updated = { ...item, ...patch, updatedAt: now };
+      if (!state.settings.categories.some((category) => category.id === updated.category)) updated.category = state.settings.categories[0].id;
       if (!memoEvents.hasValidSchedule(updated)) throw new Error('截止时间不能早于开始时间。');
       if (typeof patch.completed === 'boolean' && patch.completed !== item.completed) {
         updated.completedAt = patch.completed ? now : null;
@@ -379,6 +403,16 @@ ipcMain.handle('set-theme-color', async (_event, color) => {
     return state;
   });
 });
+ipcMain.handle('set-categories', async (_event, categories) => mutateState((state) => {
+  const nextCategories = normalizeCategories(categories);
+  const allowed = new Set(nextCategories.map((item) => item.id));
+  const fallback = nextCategories[0].id;
+  const repairCategories = (events) => events.map((item) => allowed.has(item.category) ? item : { ...item, category: fallback });
+  state.settings.categories = nextCategories;
+  state.events = repairCategories(state.events);
+  state.deletedEvents = repairCategories(state.deletedEvents || []);
+  return state;
+}));
 ipcMain.handle('set-adaptive-contrast', async (_event, enabled) => mutateState((state) => {
   state.settings.adaptiveContrast = Boolean(enabled);
   return state;
