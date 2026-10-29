@@ -19,6 +19,9 @@ let statePath;
 let storageConfigPath;
 let clickThroughEnabled = false;
 let clickThroughPassthrough = false;
+let orbMode = false;
+let fullWindowBounds;
+let clickThroughBeforeOrb = false;
 let stateWriteQueue = Promise.resolve();
 let stewardBridge;
 const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true } };
@@ -196,8 +199,39 @@ function createWindow() {
 
 function toggleWindow() {
   if (!mainWindow) return;
+  if (orbMode) { restoreFromOrb(); return; }
   if (mainWindow.isVisible()) mainWindow.hide();
   else { mainWindow.show(); mainWindow.focus(); }
+}
+
+function minimizeToOrb() {
+  if (!mainWindow || orbMode) return;
+  orbMode = true;
+  fullWindowBounds = mainWindow.getBounds();
+  clickThroughBeforeOrb = clickThroughEnabled;
+  setClickThrough(false);
+  const display = screen.getDisplayNearestPoint({ x: fullWindowBounds.x, y: fullWindowBounds.y });
+  const { workArea } = display;
+  const size = 56;
+  mainWindow.setMinimumSize(size, size);
+  mainWindow.setResizable(true);
+  mainWindow.setBounds({ x: workArea.x + workArea.width - size - 16, y: workArea.y + 16, width: size, height: size });
+  mainWindow.setMovable(false);
+  mainWindow.setResizable(false);
+  mainWindow.webContents.send('orb-mode-changed', true);
+}
+
+async function restoreFromOrb() {
+  if (!mainWindow || !orbMode) return;
+  orbMode = false;
+  mainWindow.setResizable(true);
+  mainWindow.setMinimumSize(220, 160);
+  if (fullWindowBounds) mainWindow.setBounds(fullWindowBounds);
+  await applySavedWindowSettings();
+  mainWindow.webContents.send('orb-mode-changed', false);
+  setClickThrough(clickThroughBeforeOrb);
+  mainWindow.show();
+  mainWindow.focus();
 }
 
 function applyClickThrough() {
@@ -370,6 +404,8 @@ ipcMain.handle('set-click-through-hotspot', (_event, active) => {
   applyClickThrough();
   return true;
 });
+ipcMain.handle('minimize-to-orb', () => minimizeToOrb());
+ipcMain.handle('restore-from-orb', () => restoreFromOrb());
 ipcMain.handle('hide-window', () => mainWindow?.hide());
 ipcMain.handle('quit-app', () => { app.isQuiting = true; app.quit(); });
 ipcMain.handle('export-events', async (_event, format) => {

@@ -585,7 +585,8 @@ async function boot() {
     $('#dock-toggle').setAttribute('aria-expanded', String(expanded));
     $('#dock-toggle').title = expanded ? '收起快捷功能' : '展开快捷功能';
   });
-  $('#hide').addEventListener('click', () => window.steward.hide());
+  $('#hide').addEventListener('click', () => window.steward.minimizeToOrb());
+  $('#orb-restore').addEventListener('click', () => window.steward.restoreFromOrb());
   $('#quit-app').addEventListener('click', () => window.steward.quit());
   $('#export-json').addEventListener('click', () => exportData('json'));
   $('#export-csv').addEventListener('click', () => exportData('csv'));
@@ -663,6 +664,7 @@ async function boot() {
     else { actionHotspotActive = false; scrollHotspotActive = false; }
     render();
   });
+  window.steward.onOrbModeChanged((enabled) => document.body.classList.toggle('orb-mode', enabled));
   window.steward.onStateChanged((nextState) => {
     state = nextState;
     render();

@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('steward', {
   toggleClickThrough: (keepHotspotInteractive = false) => ipcRenderer.invoke('toggle-click-through', keepHotspotInteractive),
   setClickThroughHotspot: (active) => ipcRenderer.invoke('set-click-through-hotspot', active),
   onClickThroughChanged: (callback) => ipcRenderer.on('click-through-changed', (_event, enabled) => callback(enabled)),
+  minimizeToOrb: () => ipcRenderer.invoke('minimize-to-orb'),
+  restoreFromOrb: () => ipcRenderer.invoke('restore-from-orb'),
+  onOrbModeChanged: (callback) => ipcRenderer.on('orb-mode-changed', (_event, enabled) => callback(enabled)),
   onStateChanged: (callback) => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on('steward-state-changed', listener);
