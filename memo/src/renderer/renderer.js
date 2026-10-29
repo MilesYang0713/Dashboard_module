@@ -597,6 +597,11 @@ async function boot() {
     $('#new-category-label').value = '';
     showToast(`已添加类别：${label}`);
   });
+  $('#toggle-categories').addEventListener('click', () => {
+    const content = $('#category-manager-content');
+    const expanded = !content.classList.toggle('collapsed');
+    $('#toggle-categories').setAttribute('aria-expanded', String(expanded));
+  });
   $('#sort-by').addEventListener('change', (event) => { sortField = event.target.value; render(); });
   $('#content-opacity').addEventListener('input', async (event) => { document.documentElement.style.setProperty('--content-opacity', event.target.value); state = await window.steward.setContentOpacity(event.target.value); });
   $('#background-opacity').addEventListener('input', async (event) => { state = await window.steward.setBackgroundOpacity(event.target.value); render(); });
