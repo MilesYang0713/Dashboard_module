@@ -11,6 +11,16 @@ let editingEventId = null;
 const $ = (selector) => document.querySelector(selector);
 const categoryLabels = { task: '事情', learning: '学习', shopping: '购物', life: '生活', other: '其他' };
 const categoryAccents = { task: '#9c8cff', learning: '#65b9ff', shopping: '#ffb560', life: '#62d39a', other: '#f28ab8' };
+const isLightColor = (hex) => {
+  const match = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex || '');
+  if (!match) return false;
+  const channel = (value) => {
+    const normalized = parseInt(value, 16) / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = channel(match[1]) * 0.2126 + channel(match[2]) * 0.7152 + channel(match[3]) * 0.0722;
+  return luminance > 0.52;
+};
 const formatTime = (time) => time ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(time)) : null;
 const formatDateOnly = (date) => date ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00`)) : null;
 const eventTime = (item, kind, endOfDay = false) => {
@@ -319,6 +329,7 @@ function render() {
   document.documentElement.style.setProperty('--background-opacity', state.settings.backgroundOpacity);
   document.documentElement.style.setProperty('--content-opacity', state.settings.contentOpacity);
   document.documentElement.style.setProperty('--accent-color', state.settings.themeColor);
+  document.documentElement.style.setProperty('--orb-mark-color', isLightColor(state.settings.themeColor) ? '#101319' : '#ffffff');
   $('.panel').classList.toggle('background-clear', state.settings.backgroundOpacity === 0);
   document.body.classList.toggle('adaptive-contrast', adaptiveContrast);
   document.body.classList.toggle('contrast-dark-ink', adaptiveContrast && Number(state.settings.backgroundOpacity) <= 0.54);
