@@ -1,0 +1,14 @@
+{
+  "name": "steward-memo-tauri",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tauri migration of the local-first Memo desktop widget.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0"
+  }
+}

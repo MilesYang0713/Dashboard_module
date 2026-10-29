@@ -8,7 +8,26 @@
 | Component / 组件 | Description / 简介 | Documentation / 文档 |
 | --- | --- | --- |
 | [Memo](#memo) | Local-first Windows desktop memo with event queues, reminders, analytics, and a transparent always-on-top window. / 本地优先的 Windows 桌面备忘录，含事件队列、提醒、数据概览和透明置顶窗口。 | [Open Memo README / 打开 Memo 说明](memo/README.md) |
+| [Memo Tauri](#memo-tauri) | Parallel lightweight Tauri-shell migration of Memo. / Memo 的并行轻量 Tauri 外壳迁移版。 | [Open Tauri migration README / 打开迁移说明](memo-tauri/README.md) |
 | [Steward](#steward) | Local-first workspace steward that routes typed or clipboard tasks to explicitly approved departments. / 本地优先的工作区总管，可把输入或剪贴板任务路由到明确授权的部门。 | [Open Steward README / 打开总管说明](steward/README.md) |
+
+---
+
+<a id="memo-tauri"></a>
+
+## Memo Tauri — Migration Preview / 迁移预览版
+
+**English**
+
+Memo Tauri is the parallel lighter desktop shell for Memo. It reuses the existing interface and the same local event schema while Electron remains the stable release during migration.
+
+**中文**
+
+Memo Tauri 是 Memo 的并行轻量桌面外壳。迁移期间，它复用现有界面及同一份本地事件数据结构；Electron 版本仍保持为稳定版。
+
+See [Memo Tauri README / Tauri 迁移说明](memo-tauri/README.md).
+
+详见 [Memo Tauri README / Tauri 迁移说明](memo-tauri/README.md)。
 
 ---
 
