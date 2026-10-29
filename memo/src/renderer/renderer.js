@@ -589,21 +589,24 @@ async function boot() {
   const orb = $('#orb-restore');
   let orbPress = null;
   let suppressOrbClick = false;
-  const moveOrb = (event) => window.steward.moveOrb({ deltaX: Math.round(event.movementX), deltaY: Math.round(event.movementY) });
+  const moveOrb = () => window.steward.moveOrb();
   orb.addEventListener('mousedown', (event) => {
     if (!document.body.classList.contains('orb-mode')) return;
     event.preventDefault();
-    orbPress = { dragging: false, latestEvent: event, timer: setTimeout(() => {
+    orbPress = { dragging: false, dragReady: false, timer: setTimeout(async () => {
       if (!orbPress) return;
       orbPress.dragging = true;
       orb.classList.add('dragging');
-      moveOrb(orbPress.latestEvent);
+      const press = orbPress;
+      await window.steward.beginOrbDrag();
+      if (orbPress !== press || !press.dragging) return;
+      press.dragReady = true;
+      moveOrb();
     }, 250) };
   });
   window.addEventListener('mousemove', (event) => {
     if (!orbPress) return;
-    orbPress.latestEvent = event;
-    if (orbPress.dragging) moveOrb(event);
+    if (orbPress.dragging && orbPress.dragReady) moveOrb();
   });
   const finishOrbPress = () => {
     if (!orbPress) return;
@@ -611,7 +614,7 @@ async function boot() {
     const dragged = orbPress.dragging;
     orbPress = null;
     orb.classList.remove('dragging');
-    if (dragged) { suppressOrbClick = true; return; }
+    if (dragged) { window.steward.endOrbDrag(); suppressOrbClick = true; return; }
     window.steward.restoreFromOrb();
   };
   window.addEventListener('mouseup', finishOrbPress);

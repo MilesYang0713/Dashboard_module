@@ -22,6 +22,7 @@ let clickThroughPassthrough = false;
 let orbMode = false;
 let fullWindowBounds;
 let clickThroughBeforeOrb = false;
+let orbDragOffset;
 let stateWriteQueue = Promise.resolve();
 let stewardBridge;
 const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true } };
@@ -408,17 +409,26 @@ ipcMain.handle('set-click-through-hotspot', (_event, active) => {
 });
 ipcMain.handle('minimize-to-orb', () => minimizeToOrb());
 ipcMain.handle('restore-from-orb', () => restoreFromOrb());
-ipcMain.handle('move-orb', (_event, { deltaX, deltaY }) => {
-  if (!mainWindow || !orbMode || !Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return null;
+ipcMain.handle('begin-orb-drag', () => {
+  if (!mainWindow || !orbMode) return false;
+  const bounds = mainWindow.getBounds();
+  const cursor = screen.getCursorScreenPoint();
+  orbDragOffset = { x: cursor.x - bounds.x, y: cursor.y - bounds.y };
+  return true;
+});
+ipcMain.handle('move-orb', () => {
+  if (!mainWindow || !orbMode || !orbDragOffset) return null;
   const size = mainWindow.getBounds();
-  const requestedX = size.x + deltaX;
-  const requestedY = size.y + deltaY;
+  const cursor = screen.getCursorScreenPoint();
+  const requestedX = cursor.x - orbDragOffset.x;
+  const requestedY = cursor.y - orbDragOffset.y;
   const { workArea } = screen.getDisplayNearestPoint({ x: requestedX, y: requestedY });
   const clampedX = Math.max(workArea.x, Math.min(Math.round(requestedX), workArea.x + workArea.width - size.width));
   const clampedY = Math.max(workArea.y, Math.min(Math.round(requestedY), workArea.y + workArea.height - size.height));
   mainWindow.setPosition(clampedX, clampedY);
   return { x: clampedX, y: clampedY };
 });
+ipcMain.handle('end-orb-drag', () => { orbDragOffset = undefined; });
 ipcMain.handle('hide-window', () => mainWindow?.hide());
 ipcMain.handle('quit-app', () => { app.isQuiting = true; app.quit(); });
 ipcMain.handle('export-events', async (_event, format) => {

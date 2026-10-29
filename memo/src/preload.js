@@ -22,7 +22,9 @@ contextBridge.exposeInMainWorld('steward', {
   onClickThroughChanged: (callback) => ipcRenderer.on('click-through-changed', (_event, enabled) => callback(enabled)),
   minimizeToOrb: () => ipcRenderer.invoke('minimize-to-orb'),
   restoreFromOrb: () => ipcRenderer.invoke('restore-from-orb'),
-  moveOrb: (position) => ipcRenderer.invoke('move-orb', position),
+  beginOrbDrag: () => ipcRenderer.invoke('begin-orb-drag'),
+  moveOrb: () => ipcRenderer.invoke('move-orb'),
+  endOrbDrag: () => ipcRenderer.invoke('end-orb-drag'),
   onOrbModeChanged: (callback) => ipcRenderer.on('orb-mode-changed', (_event, enabled) => callback(enabled)),
   onStateChanged: (callback) => {
     const listener = (_event, state) => callback(state);
