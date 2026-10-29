@@ -78,7 +78,6 @@
         <button id="setting-adaptive-contrast" class="setting-row toggle" title="背景较亮或透明时自动改用深色文字">自动对比色 <span></span></button>
         <button id="setting-launch-at-login" class="setting-row toggle">开机自动运行 <span></span></button>
         <div class="storage-row"><label for="storage-path">数据保存位置</label><div><input id="storage-path" readonly title="当前备忘录数据文件" /><button id="choose-storage-path">更改</button></div></div>
-        <button id="create-desktop-shortcut" class="shortcut-button">创建桌面图标</button>
         <label class="setting-row completed-visibility">完成后主页显示 <select id="completed-visibility"><option value="immediate">立即隐藏</option><option value="today">保留到今天结束</option><option value="24h">保留 24 小时</option></select></label>
         <button id="setting-window-lock" class="setting-row toggle">固定窗口位置与尺寸 <span></span></button>
         <button id="setting-click-through" class="setting-row toggle">锁定交互并点击穿透 <span></span></button>
@@ -117,6 +116,7 @@
         <section class="release-history" aria-label="更新历史">
           <button id="toggle-updates" class="release-heading" aria-expanded="true"><span><i class="eyebrow">UPDATES</i><strong>Update history</strong><small>更新历史</small></span><b aria-hidden="true">▾</b></button>
           <div id="release-list" class="release-list">
+            <article><time>2026-10-29</time><strong>v2.3.0 · Automatic desktop shortcut</strong><span>每次启动会自动创建或更新桌面 Memo 图标；设置页不再保留手动创建按钮。</span></article>
             <article><time>2026-10-29</time><strong>v2.2.9 · Custom categories</strong><span>设置页支持添加、改名、着色与删除类别；主页筛选、添加事件、分类色条和数据图表会自动同步。</span></article>
             <article><time>2026-10-29</time><strong>v2.2.8 · Visible rail pulse and compact schedule</strong><span>修复呼吸光被裁掉的问题；主页时间改为紧凑区间格式，只显示实际存在的开始或截止时间。</span></article>
             <article><time>2026-10-29</time><strong>v2.2.7 · Correct category rail pulse</strong><span>修复呼吸光效覆盖分类颜色的问题；分类色条恢复正确配色，整条光效保持贴合。</span></article>

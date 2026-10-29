@@ -113,6 +113,11 @@ async function storageDetails() {
   return { path: statePath, launchAtLogin: await launchAtLoginEnabled() };
 }
 
+function ensureDesktopShortcut() {
+  const shortcut = path.join(app.getPath('desktop'), 'Memo.lnk');
+  if (!shell.writeShortcutLink(shortcut, 'create', memoShortcutDetails())) throw new Error('无法创建桌面快捷方式');
+}
+
 async function loadState() {
   try {
     const saved = JSON.parse(await fs.readFile(statePath, 'utf8'));
@@ -292,6 +297,7 @@ async function applySavedWindowSettings() {
 
 app.whenReady().then(async () => {
   await configureStoragePath();
+  ensureDesktopShortcut();
   stewardBridge = createLocalBridge({ pipeName: stewardManifest.transport.endpoint, handleRequest: handleStewardRequest });
   await stewardBridge.start();
   createWindow();
@@ -309,11 +315,6 @@ app.on('will-quit', () => {
 
 ipcMain.handle('bootstrap', async () => ({ state: await loadState(), departments: registry.list(), storage: await storageDetails() }));
 ipcMain.handle('set-launch-at-login', async (_event, enabled) => ({ launchAtLogin: await setLaunchAtLogin(Boolean(enabled)) }));
-ipcMain.handle('create-desktop-shortcut', async () => {
-  const shortcut = path.join(app.getPath('desktop'), 'Memo.lnk');
-  if (!shell.writeShortcutLink(shortcut, 'create', memoShortcutDetails())) throw new Error('无法创建桌面快捷方式');
-  return { path: shortcut };
-});
 ipcMain.handle('choose-storage-directory', async () => {
   const result = await dialog.showOpenDialog(mainWindow, { title: '选择备忘录数据保存位置', properties: ['openDirectory', 'createDirectory'] });
   if (result.canceled || !result.filePaths[0]) return { canceled: true };

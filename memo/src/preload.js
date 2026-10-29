@@ -14,7 +14,6 @@ contextBridge.exposeInMainWorld('steward', {
   setAdaptiveContrast: (enabled) => ipcRenderer.invoke('set-adaptive-contrast', enabled),
   setCompletedVisibility: (visibility) => ipcRenderer.invoke('set-completed-visibility', visibility),
   setLaunchAtLogin: (enabled) => ipcRenderer.invoke('set-launch-at-login', enabled),
-  createDesktopShortcut: () => ipcRenderer.invoke('create-desktop-shortcut'),
   chooseStorageDirectory: () => ipcRenderer.invoke('choose-storage-directory'),
   toggleTopmost: () => ipcRenderer.invoke('toggle-topmost'),
   toggleWindowLock: () => ipcRenderer.invoke('toggle-window-lock'),

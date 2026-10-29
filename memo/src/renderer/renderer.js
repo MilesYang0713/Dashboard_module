@@ -607,10 +607,6 @@ async function boot() {
     render();
     showToast(storage.launchAtLogin ? '已设为开机自动运行。' : '已关闭开机自动运行。');
   });
-  $('#create-desktop-shortcut').addEventListener('click', async () => {
-    const result = await window.steward.createDesktopShortcut();
-    showToast(`已创建桌面图标：${result.path}`);
-  });
   $('#choose-storage-path').addEventListener('click', async () => {
     const result = await window.steward.chooseStorageDirectory();
     if (result.error) { showToast(result.error); return; }
