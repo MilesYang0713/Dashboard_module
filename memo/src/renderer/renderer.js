@@ -587,7 +587,40 @@ async function boot() {
   });
   $('#hide').addEventListener('click', () => window.steward.minimizeToOrb());
   const orb = $('#orb-restore');
-  orb.addEventListener('click', () => window.steward.restoreFromOrb());
+  let orbPress = null;
+  let ignoreOrbClick = false;
+  const moveOrb = (event) => window.steward.moveOrb({ x: Math.round(event.screenX - event.clientX), y: Math.round(event.screenY - event.clientY) });
+  orb.addEventListener('pointerdown', (event) => {
+    if (!document.body.classList.contains('orb-mode')) return;
+    event.preventDefault();
+    orb.setPointerCapture(event.pointerId);
+    orbPress = { dragging: false, latestEvent: event, timer: setTimeout(() => {
+      if (!orbPress) return;
+      orbPress.dragging = true;
+      orb.classList.add('dragging');
+      moveOrb(orbPress.latestEvent);
+    }, 250) };
+  });
+  orb.addEventListener('pointermove', (event) => {
+    if (!orbPress) return;
+    orbPress.latestEvent = event;
+    if (orbPress.dragging) moveOrb(event);
+  });
+  const finishOrbPress = () => {
+    if (!orbPress) return;
+    clearTimeout(orbPress.timer);
+    const dragged = orbPress.dragging;
+    orbPress = null;
+    orb.classList.remove('dragging');
+    if (dragged) { ignoreOrbClick = true; return; }
+    window.steward.restoreFromOrb();
+  };
+  orb.addEventListener('pointerup', finishOrbPress);
+  orb.addEventListener('pointercancel', finishOrbPress);
+  orb.addEventListener('click', (event) => {
+    if (ignoreOrbClick) { ignoreOrbClick = false; event.preventDefault(); return; }
+    if (event.detail === 0) window.steward.restoreFromOrb();
+  });
   $('#quit-app').addEventListener('click', () => window.steward.quit());
   $('#export-json').addEventListener('click', () => exportData('json'));
   $('#export-csv').addEventListener('click', () => exportData('csv'));
