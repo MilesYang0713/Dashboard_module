@@ -220,6 +220,7 @@ function minimizeToOrb() {
   mainWindow.setMinimumSize(size, size);
   mainWindow.setResizable(true);
   mainWindow.setBounds({ x: workArea.x + workArea.width - size - 16, y: workArea.y + 16, width: size, height: size });
+  mainWindow.setBackgroundColor('#00000000');
   mainWindow.setHasShadow(false);
   // The compact orb has its own native drag surface, so it stays movable
   // even when the expanded Memo window is locked.
@@ -234,6 +235,7 @@ async function restoreFromOrb() {
   mainWindow.setResizable(true);
   mainWindow.setMinimumSize(220, 160);
   if (fullWindowBounds) mainWindow.setBounds(fullWindowBounds);
+  mainWindow.setBackgroundColor('#00000000');
   mainWindow.setHasShadow(true);
   await applySavedWindowSettings();
   mainWindow.webContents.send('orb-mode-changed', false);
