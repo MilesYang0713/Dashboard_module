@@ -216,7 +216,9 @@ function minimizeToOrb() {
   mainWindow.setMinimumSize(size, size);
   mainWindow.setResizable(true);
   mainWindow.setBounds({ x: workArea.x + workArea.width - size - 16, y: workArea.y + 16, width: size, height: size });
-  mainWindow.setMovable(false);
+  // The compact orb has its own native drag surface, so it stays movable
+  // even when the expanded Memo window is locked.
+  mainWindow.setMovable(true);
   mainWindow.setResizable(false);
   mainWindow.webContents.send('orb-mode-changed', true);
 }
@@ -406,15 +408,6 @@ ipcMain.handle('set-click-through-hotspot', (_event, active) => {
 });
 ipcMain.handle('minimize-to-orb', () => minimizeToOrb());
 ipcMain.handle('restore-from-orb', () => restoreFromOrb());
-ipcMain.handle('move-orb', (_event, { x, y }) => {
-  if (!mainWindow || !orbMode || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-  const size = mainWindow.getBounds();
-  const { workArea } = screen.getDisplayNearestPoint({ x, y });
-  const clampedX = Math.max(workArea.x, Math.min(Math.round(x), workArea.x + workArea.width - size.width));
-  const clampedY = Math.max(workArea.y, Math.min(Math.round(y), workArea.y + workArea.height - size.height));
-  mainWindow.setPosition(clampedX, clampedY);
-  return { x: clampedX, y: clampedY };
-});
 ipcMain.handle('hide-window', () => mainWindow?.hide());
 ipcMain.handle('quit-app', () => { app.isQuiting = true; app.quit(); });
 ipcMain.handle('export-events', async (_event, format) => {
