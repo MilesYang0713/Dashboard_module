@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('steward', {
   setThemeColor: (color) => ipcRenderer.invoke('set-theme-color', color),
   setCategories: (categories) => ipcRenderer.invoke('set-categories', categories),
   setAdaptiveContrast: (enabled) => ipcRenderer.invoke('set-adaptive-contrast', enabled),
+  setLanguage: (language) => ipcRenderer.invoke('set-language', language),
   setCompletedVisibility: (visibility) => ipcRenderer.invoke('set-completed-visibility', visibility),
   setLaunchAtLogin: (enabled) => ipcRenderer.invoke('set-launch-at-login', enabled),
   chooseStorageDirectory: () => ipcRenderer.invoke('choose-storage-directory'),

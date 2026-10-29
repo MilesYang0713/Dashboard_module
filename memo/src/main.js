@@ -45,7 +45,7 @@ function normalizeCategories(categories) {
   }).slice(0, 16);
   return normalized.length ? normalized : defaultCategories.map((item) => ({ ...item }));
 }
-const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true, categories: defaultCategories } };
+const defaultState = { events: [], deletedEvents: [], settings: { contentOpacity: 0.92, backgroundOpacity: 0.94, themeColor: '#8f82ff', adaptiveContrast: true, completedVisibility: 'immediate', alwaysOnTop: true, windowLocked: true, language: 'zh-CN', categories: defaultCategories } };
 
 // Keep one Memo window for this user-data profile. Starting the desktop or
 // startup shortcut again simply returns focus to the existing Memo window,
@@ -416,6 +416,10 @@ ipcMain.handle('set-categories', async (_event, categories) => mutateState((stat
 }));
 ipcMain.handle('set-adaptive-contrast', async (_event, enabled) => mutateState((state) => {
   state.settings.adaptiveContrast = Boolean(enabled);
+  return state;
+}));
+ipcMain.handle('set-language', async (_event, language) => mutateState((state) => {
+  state.settings.language = language === 'en' ? 'en' : 'zh-CN';
   return state;
 }));
 ipcMain.handle('set-completed-visibility', async (_event, visibility) => {

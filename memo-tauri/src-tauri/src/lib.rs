@@ -39,7 +39,7 @@ fn default_state() -> Value {
       "events": [], "deletedEvents": [],
       "settings": {
         "contentOpacity": 0.92, "backgroundOpacity": 0.94, "themeColor": "#8f82ff",
-        "adaptiveContrast": true, "completedVisibility": "immediate", "alwaysOnTop": true,
+        "adaptiveContrast": true, "completedVisibility": "immediate", "alwaysOnTop": true, "language": "zh-CN",
         "windowLocked": true, "categories": default_categories()
       }
     })
@@ -243,6 +243,7 @@ fn patch_settings(app: &AppHandle, memo: &MemoState, key: &str, value: Value) ->
 #[tauri::command] fn set_background_opacity(app: AppHandle, memo: State<MemoState>, value: f64) -> Result<Value, String> { patch_settings(&app, &memo, "backgroundOpacity", json!(value.clamp(0.0, 0.98))) }
 #[tauri::command] fn set_theme_color(app: AppHandle, memo: State<MemoState>, color: String) -> Result<Value, String> { let safe = if color.len() == 7 && color.starts_with('#') { color } else { "#8f82ff".into() }; patch_settings(&app, &memo, "themeColor", json!(safe)) }
 #[tauri::command] fn set_adaptive_contrast(app: AppHandle, memo: State<MemoState>, enabled: bool) -> Result<Value, String> { patch_settings(&app, &memo, "adaptiveContrast", json!(enabled)) }
+#[tauri::command] fn set_language(app: AppHandle, memo: State<MemoState>, language: String) -> Result<Value, String> { patch_settings(&app, &memo, "language", json!(if language == "en" { "en" } else { "zh-CN" })) }
 #[tauri::command] fn set_completed_visibility(app: AppHandle, memo: State<MemoState>, visibility: String) -> Result<Value, String> { let safe = if ["immediate", "today", "24h"].contains(&visibility.as_str()) { visibility } else { "immediate".into() }; patch_settings(&app, &memo, "completedVisibility", json!(safe)) }
 
 #[tauri::command]
@@ -349,7 +350,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
+        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_language, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
         .run(tauri::generate_context!())
         .expect("Memo Tauri 无法启动");
 }

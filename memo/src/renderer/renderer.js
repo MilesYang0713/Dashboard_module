@@ -8,6 +8,32 @@ let scrollHotspotActive = false;
 let scrollHotspotReleaseTimer = null;
 let editingEventId = null;
 
+const locale = () => state?.settings?.language === 'en' ? 'en' : 'zh-CN';
+const translations = {
+  en: {
+    language: 'System language', settings: 'Display settings', add: 'Add event', save: 'Save changes',
+    category: 'Category:', priority: 'Priority:', startDate: 'Start date', startTime: 'Start time', dueDate: 'Due date', dueTime: 'Due time',
+    reminder: 'Advance reminder', dayDefault: 'days (default: 1)', dataPath: 'Data location', change: 'Change',
+    completed: 'Completed items', hideNow: 'Hide immediately', todayEnd: 'Keep until today ends', keep24: 'Keep for 24 hours',
+    lockWindow: 'Lock position and size', clickThrough: 'Lock interaction and click through', topmost: 'Always on top', launch: 'Launch at login', quit: 'Quit Memo',
+    history: 'Update history', register: 'Event register', deleted: 'Deleted events', overview: 'Work overview', adaptive: 'Adaptive contrast',
+    created: 'Created', updated: 'Updated', completedAction: 'Completed', reopened: 'Reopened', deletedAction: 'Deleted', restored: 'Restored', edit: 'Edit event', delete: 'Delete event', done: 'Complete event'
+  },
+  'zh-CN': {}
+};
+const t = (key, fallback) => translations[locale()]?.[key] || fallback;
+
+function applyLanguage() {
+  const en = locale() === 'en';
+  document.documentElement.lang = en ? 'en' : 'zh-CN';
+  $('#language-label').textContent = t('language', '系统语言');
+  $('#language').value = locale();
+  $('#capture-sheet-title').textContent = editingEventId ? t('save', '修改事件') : t('add', '添加事件');
+  $('#capture-button').textContent = editingEventId ? t('save', '保存修改') : t('add', '添加');
+  const staticText = [['#settings-sheet h2', 'settings', '显示设置'], ['#setting-adaptive-contrast', 'adaptive', '自动对比色'], ['#setting-launch-at-login', 'launch', '开机自动运行'], ['#setting-window-lock', 'lockWindow', '固定窗口位置与尺寸'], ['#setting-click-through', 'clickThrough', '锁定交互并点击穿透'], ['#setting-topmost', 'topmost', '始终置顶'], ['#quit-app', 'quit', '退出备忘录'], ['#analytics h3', 'overview', 'Work overview'], ['#register h3', 'register', 'Event register'], ['#trash h3', 'deleted', 'Deleted events'], ['#toggle-updates strong', 'history', 'Update history']];
+  for (const [selector, key, fallback] of staticText) { const element = $(selector); if (element) element.childNodes[0] ? element.childNodes[0].textContent = t(key, fallback) : element.textContent = t(key, fallback); }
+}
+
 const $ = (selector) => document.querySelector(selector);
 const defaultCategories = [
   { id: 'task', label: '事情', color: '#9c8cff' },
@@ -381,6 +407,7 @@ function renderCategoryControls() {
 }
 
 function render() {
+  applyLanguage();
   const events = state.events || [];
   $('#event-count').textContent = `${events.filter((item) => !item.completed).length} 项待办`;
   $('#content-opacity').value = state.settings.contentOpacity;
@@ -426,9 +453,9 @@ function render() {
     card.className = `event category-${category.id} priority-${item.priority}${item.completed ? ' completed' : ''}${alert ? ` alert-${alert.tone}` : ''}`;
     card.style.setProperty('--event-category-color', category.color);
     card.innerHTML = `
-      <button class="done" aria-label="完成事件">${item.completed ? '✓' : ''}</button>
+      <button class="done" aria-label="${t('done', '完成事件')}">${item.completed ? '✓' : ''}</button>
       <div class="event-copy"><p class="event-title"></p><p class="event-meta">${schedule ? `<span>${schedule}</span>` : ''}<span class="category-chip">${category.label}</span></p>${alert ? `<p class="event-alert">${alert.label}</p>` : ''}</div>
-      <div class="event-actions"><button class="edit" aria-label="修改事件" title="修改事件">✎</button><button class="delete" aria-label="删除事件">×</button></div>`;
+      <div class="event-actions"><button class="edit" aria-label="${t('edit', '修改事件')}" title="${t('edit', '修改事件')}">✎</button><button class="delete" aria-label="${t('delete', '删除事件')}">×</button></div>`;
     card.querySelector('.event-title').textContent = item.title;
     card.querySelector('.done').addEventListener('click', async () => { state = await window.steward.updateEvent(item.id, { completed: !item.completed }); render(); });
     card.querySelector('.edit').addEventListener('click', () => openEventEditor(item));
@@ -607,6 +634,7 @@ async function boot() {
   $('#background-opacity').addEventListener('input', async (event) => { state = await window.steward.setBackgroundOpacity(event.target.value); render(); });
   $('#theme-color').addEventListener('input', async (event) => { document.documentElement.style.setProperty('--accent-color', event.target.value); state = await window.steward.setThemeColor(event.target.value); render(); });
   $('#setting-adaptive-contrast').addEventListener('click', async () => { state = await window.steward.setAdaptiveContrast(!(state.settings.adaptiveContrast !== false)); render(); });
+  $('#language').addEventListener('change', async (event) => { state = await window.steward.setLanguage(event.target.value); render(); });
   $('#setting-launch-at-login').addEventListener('click', async () => {
     storage = { ...storage, ...(await window.steward.setLaunchAtLogin(!storage?.launchAtLogin)) };
     render();
