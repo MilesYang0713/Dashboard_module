@@ -593,24 +593,23 @@ async function boot() {
   orb.addEventListener('mousedown', (event) => {
     if (!document.body.classList.contains('orb-mode')) return;
     event.preventDefault();
-    orbPress = { dragging: false, dragReady: false, timer: setTimeout(async () => {
-      if (!orbPress) return;
-      orbPress.dragging = true;
-      orb.classList.add('dragging');
-      const press = orbPress;
-      await window.steward.beginOrbDrag();
-      if (orbPress !== press || !press.dragging) return;
+    const press = orbPress = { dragging: false, dragReady: false, startX: event.screenX, startY: event.screenY };
+    window.steward.beginOrbDrag().then(() => {
+      if (orbPress !== press) return;
       press.dragReady = true;
-      moveOrb();
-    }, 250) };
+      if (press.dragging) moveOrb();
+    });
   });
   window.addEventListener('mousemove', (event) => {
     if (!orbPress) return;
+    if (!orbPress.dragging && Math.hypot(event.screenX - orbPress.startX, event.screenY - orbPress.startY) >= 3) {
+      orbPress.dragging = true;
+      orb.classList.add('dragging');
+    }
     if (orbPress.dragging && orbPress.dragReady) moveOrb();
   });
   const finishOrbPress = () => {
     if (!orbPress) return;
-    clearTimeout(orbPress.timer);
     const dragged = orbPress.dragging;
     orbPress = null;
     orb.classList.remove('dragging');
