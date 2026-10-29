@@ -586,7 +586,31 @@ async function boot() {
     $('#dock-toggle').title = expanded ? '收起快捷功能' : '展开快捷功能';
   });
   $('#hide').addEventListener('click', () => window.steward.minimizeToOrb());
-  $('#orb-restore').addEventListener('click', () => window.steward.restoreFromOrb());
+  const orb = $('#orb-restore');
+  let orbPointerSession = null;
+  let ignoreOrbClick = false;
+  orb.addEventListener('pointerdown', (event) => {
+    if (!document.body.classList.contains('orb-mode')) return;
+    orbPointerSession = { moved: false };
+    orb.setPointerCapture(event.pointerId);
+  });
+  orb.addEventListener('pointermove', (event) => {
+    if (!orbPointerSession) return;
+    if (Math.abs(event.movementX) + Math.abs(event.movementY) > 1) orbPointerSession.moved = true;
+    if (!orbPointerSession.moved) return;
+    window.steward.moveOrb({ x: Math.round(event.screenX - event.clientX), y: Math.round(event.screenY - event.clientY) });
+  });
+  orb.addEventListener('pointerup', () => {
+    if (!orbPointerSession) return;
+    const moved = orbPointerSession.moved;
+    orbPointerSession = null;
+    if (moved) { ignoreOrbClick = true; return; }
+    window.steward.restoreFromOrb();
+  });
+  orb.addEventListener('click', (event) => {
+    if (ignoreOrbClick) { ignoreOrbClick = false; event.preventDefault(); return; }
+    if (event.detail === 0) window.steward.restoreFromOrb();
+  });
   $('#quit-app').addEventListener('click', () => window.steward.quit());
   $('#export-json').addEventListener('click', () => exportData('json'));
   $('#export-csv').addEventListener('click', () => exportData('csv'));
