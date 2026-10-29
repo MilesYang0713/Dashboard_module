@@ -213,10 +213,14 @@ function minimizeToOrb() {
   setClickThrough(false);
   const display = screen.getDisplayNearestPoint({ x: fullWindowBounds.x, y: fullWindowBounds.y });
   const { workArea } = display;
-  const size = 46;
+  // The transparent carrier is larger than the visible orb, leaving room for
+  // its glass shadow without making a rectangular edge visible.
+  const size = 58;
+  const orbInset = 8;
   mainWindow.setMinimumSize(size, size);
   mainWindow.setResizable(true);
   mainWindow.setBounds({ x: workArea.x + workArea.width - size - 16, y: workArea.y + 16, width: size, height: size });
+  mainWindow.setHasShadow(false);
   // The compact orb has its own native drag surface, so it stays movable
   // even when the expanded Memo window is locked.
   mainWindow.setMovable(true);
@@ -230,6 +234,7 @@ async function restoreFromOrb() {
   mainWindow.setResizable(true);
   mainWindow.setMinimumSize(220, 160);
   if (fullWindowBounds) mainWindow.setBounds(fullWindowBounds);
+  mainWindow.setHasShadow(true);
   await applySavedWindowSettings();
   mainWindow.webContents.send('orb-mode-changed', false);
   setClickThrough(clickThroughBeforeOrb);
@@ -423,8 +428,9 @@ ipcMain.handle('move-orb', () => {
   const requestedX = cursor.x - orbDragOffset.x;
   const requestedY = cursor.y - orbDragOffset.y;
   const { workArea } = screen.getDisplayNearestPoint({ x: requestedX, y: requestedY });
-  const clampedX = Math.max(workArea.x, Math.min(Math.round(requestedX), workArea.x + workArea.width - size.width));
-  const clampedY = Math.max(workArea.y, Math.min(Math.round(requestedY), workArea.y + workArea.height - size.height));
+  const orbInset = 8;
+  const clampedX = Math.max(workArea.x - orbInset, Math.min(Math.round(requestedX), workArea.x + workArea.width - size.width + orbInset));
+  const clampedY = Math.max(workArea.y - orbInset, Math.min(Math.round(requestedY), workArea.y + workArea.height - size.height + orbInset));
   mainWindow.setPosition(clampedX, clampedY);
   return { x: clampedX, y: clampedY };
 });
