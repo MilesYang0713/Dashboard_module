@@ -15,8 +15,10 @@ moves the user's event data.
 - Tauri 窗口：透明、无边框、置顶、可缩放，并具备点击穿透能力。
 - Event list, completion, edit, delete, restore, category, settings, theme, lock, orb and JSON state mutations use the same data schema as Electron.
 - 事件列表、完成、修改、删除、恢复、分类、设置、主题、锁定、悬浮球及 JSON 写入均与 Electron 共用同一份数据结构。
-- Still being migrated: natural-language date parsing, native export picker, custom storage picker, startup registration, global shortcuts, updater, and the production installer.
-- 仍在迁移：自然语言日期解析、原生导出/数据位置选择器、开机启动、全局快捷键、更新器和正式安装包。
+- Native export and data-folder dialogs, startup registration, and the two existing global shortcuts are now implemented with Tauri plugins. Natural-language parsing is local and covers the common Chinese/English date and time forms used in the capture sheet.
+- 原生导出与数据目录选择器、开机启动及两个既有全局快捷键现已使用 Tauri 插件实现。自然语言解析保持本地运行，并覆盖添加页常用的中英文日期与时间形式。
+- Still pending before the Electron entry can be replaced: full parser parity for every rare date expression, Steward named-pipe transport, signed installers, updater publishing, and manual acceptance testing of every visual interaction.
+- 在替换 Electron 入口前仍需完成：少见日期表达的完整解析一致性、Steward 命名管道传输、签名安装包、更新发布和所有视觉交互的手动验收。
 
 ## Run / 运行
 

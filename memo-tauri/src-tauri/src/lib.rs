@@ -2,6 +2,8 @@ use chrono::{Local, SecondsFormat, Utc};
 use serde_json::{json, Value};
 use std::{fs, path::{Path, PathBuf}, sync::Mutex};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow};
+use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
@@ -10,6 +12,7 @@ const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
 ];
 
 struct MemoState {
+    data_dir: PathBuf,
     state_path: Mutex<PathBuf>,
     write_lock: Mutex<()>,
     window: Mutex<WindowRuntime>,
@@ -282,16 +285,61 @@ fn move_orb(memo: State<MemoState>, window: WebviewWindow, cursor: Value) -> Res
 #[tauri::command] fn hide_window(window: WebviewWindow) -> Result<(), String> { window.hide().map_err(|e| e.to_string()) }
 #[tauri::command] fn quit_app(app: AppHandle) { app.exit(0); }
 
-#[tauri::command] fn set_launch_at_login(enabled: bool) -> Value { json!({ "launchAtLogin": false, "migrationPending": enabled }) }
-#[tauri::command] fn choose_storage_directory() -> Value { json!({ "canceled": true, "error": "Tauri 版正在迁移，当前继续使用既有 D 盘数据。" }) }
-#[tauri::command] fn export_events(format: String) -> Value { json!({ "canceled": true, "error": format!("Tauri 导出正在迁移：{format}") }) }
+#[tauri::command]
+fn set_storage_directory(memo: State<MemoState>, directory: String) -> Result<Value, String> {
+    let target_dir = PathBuf::from(directory);
+    let target = target_dir.join("steward-memo.json");
+    if target.exists() { return Ok(json!({ "canceled": true, "error": "所选文件夹已含有 steward-memo.json；为防止覆盖，未更改保存位置。" })); }
+    let _guard = memo.write_lock.lock().map_err(|_| "数据写入锁不可用".to_string())?;
+    let current = load_state(&memo)?;
+    fs::create_dir_all(&target_dir).map_err(|e| e.to_string())?;
+    fs::write(&target, serde_json::to_string_pretty(&current).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let config = memo.data_dir.join("memo-storage.json");
+    fs::write(config, serde_json::to_string_pretty(&json!({ "statePath": target })).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    *memo.state_path.lock().map_err(|_| "数据锁不可用".to_string())? = target.clone();
+    Ok(json!({ "canceled": false, "state": current, "storage": { "path": target, "launchAtLogin": false } }))
+}
+
+fn csv_quote(value: impl ToString) -> String { format!("\"{}\"", value.to_string().replace('"', "\"\"")) }
+
+#[tauri::command]
+fn write_export(memo: State<MemoState>, format: String, path: String) -> Result<Value, String> {
+    let state = load_state(&memo)?;
+    let destination = PathBuf::from(path);
+    let output = if format == "csv" {
+        let headers = "工作,类别,优先级,状态,解决方案,已创建,已更新,截止日期,已删除";
+        let categories = state.pointer("/settings/categories").and_then(Value::as_array).cloned().unwrap_or_default();
+        let name_for = |id: &str| categories.iter().find(|category| category.get("id").and_then(Value::as_str) == Some(id)).and_then(|category| category.get("label").and_then(Value::as_str)).unwrap_or("事情");
+        let mut rows = vec![headers.to_owned()];
+        for event in state["events"].as_array().into_iter().flatten().chain(state["deletedEvents"].as_array().into_iter().flatten()) {
+            let deleted = event.get("deletedAt").and_then(Value::as_str); let completed = event.get("completed").and_then(Value::as_bool).unwrap_or(false);
+            rows.push([event.get("title").and_then(Value::as_str).unwrap_or(""), name_for(event.get("category").and_then(Value::as_str).unwrap_or("task")), event.get("priority").and_then(Value::as_str).unwrap_or("normal"), if deleted.is_some() { "已删除" } else if completed { "完成" } else { "待办" }, if deleted.is_some() { "已移至回收站" } else if completed { "完成" } else { "未解决" }, event.get("createdAt").and_then(Value::as_str).unwrap_or(""), event.get("updatedAt").and_then(Value::as_str).unwrap_or(""), event.get("dueAt").and_then(Value::as_str).or_else(|| event.get("dueDate").and_then(Value::as_str)).unwrap_or("无"), deleted.unwrap_or("无")].into_iter().map(csv_quote).collect::<Vec<_>>().join(","));
+        }
+        rows.join("\r\n")
+    } else { serde_json::to_string_pretty(&json!({ "exportedAt": iso_now(), "events": state["events"], "deletedEvents": state["deletedEvents"] })).map_err(|e| e.to_string())? };
+    fs::write(&destination, output).map_err(|e| e.to_string())?;
+    Ok(json!({ "canceled": false, "filePath": destination }))
+}
 
 pub fn run() {
     let data_dir = data_directory();
-    let app_state = MemoState { state_path: Mutex::new(read_configured_state_path(&data_dir)), write_lock: Mutex::new(()), window: Mutex::new(WindowRuntime::default()) };
+    let app_state = MemoState { data_dir: data_dir.clone(), state_path: Mutex::new(read_configured_state_path(&data_dir)), write_lock: Mutex::new(()), window: Mutex::new(WindowRuntime::default()) };
     tauri::Builder::default()
         .manage(app_state)
         .setup(|app| {
+            app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None::<Vec<&str>>))?;
+            let toggle_window = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyM);
+            let toggle_click = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyL);
+            let shortcut_app = app.handle().clone();
+            app.handle().plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(move |_app, shortcut, event| {
+                if event.state() != ShortcutState::Pressed { return; }
+                if let Some(window) = shortcut_app.get_webview_window("main") {
+                    if shortcut == &toggle_window { if window.is_visible().unwrap_or(true) { let _ = window.hide(); } else { let _ = window.show(); let _ = window.set_focus(); } }
+                    if shortcut == &toggle_click { let state = shortcut_app.state::<MemoState>(); if let Ok(mut runtime) = state.window.lock() { runtime.click_through = !runtime.click_through; let _ = apply_click_through(&window, &runtime); let _ = window.emit("click-through-changed", runtime.click_through); }; }
+                }
+            }).build())?;
+            app.global_shortcut().register(toggle_window)?;
+            app.global_shortcut().register(toggle_click)?;
             if let Some(window) = app.get_webview_window("main") {
                 let state = app.state::<MemoState>();
                 if let Ok(saved) = load_state(&state) {
@@ -301,7 +349,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_launch_at_login, choose_storage_directory, export_events])
+        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
         .run(tauri::generate_context!())
         .expect("Memo Tauri 无法启动");
 }
