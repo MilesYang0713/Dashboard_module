@@ -588,12 +588,11 @@ async function boot() {
   $('#hide').addEventListener('click', () => window.steward.minimizeToOrb());
   const orb = $('#orb-restore');
   let orbPress = null;
-  let ignoreOrbClick = false;
+  let suppressOrbClick = false;
   const moveOrb = (event) => window.steward.moveOrb({ x: Math.round(event.screenX - event.clientX), y: Math.round(event.screenY - event.clientY) });
-  orb.addEventListener('pointerdown', (event) => {
+  orb.addEventListener('mousedown', (event) => {
     if (!document.body.classList.contains('orb-mode')) return;
     event.preventDefault();
-    orb.setPointerCapture(event.pointerId);
     orbPress = { dragging: false, latestEvent: event, timer: setTimeout(() => {
       if (!orbPress) return;
       orbPress.dragging = true;
@@ -601,7 +600,7 @@ async function boot() {
       moveOrb(orbPress.latestEvent);
     }, 250) };
   });
-  orb.addEventListener('pointermove', (event) => {
+  window.addEventListener('mousemove', (event) => {
     if (!orbPress) return;
     orbPress.latestEvent = event;
     if (orbPress.dragging) moveOrb(event);
@@ -612,13 +611,13 @@ async function boot() {
     const dragged = orbPress.dragging;
     orbPress = null;
     orb.classList.remove('dragging');
-    if (dragged) { ignoreOrbClick = true; return; }
+    if (dragged) { suppressOrbClick = true; return; }
     window.steward.restoreFromOrb();
   };
-  orb.addEventListener('pointerup', finishOrbPress);
-  orb.addEventListener('pointercancel', finishOrbPress);
+  window.addEventListener('mouseup', finishOrbPress);
+  orb.addEventListener('dragstart', (event) => event.preventDefault());
   orb.addEventListener('click', (event) => {
-    if (ignoreOrbClick) { ignoreOrbClick = false; event.preventDefault(); return; }
+    if (suppressOrbClick) { suppressOrbClick = false; event.preventDefault(); return; }
     if (event.detail === 0) window.steward.restoreFromOrb();
   });
   $('#quit-app').addEventListener('click', () => window.steward.quit());
