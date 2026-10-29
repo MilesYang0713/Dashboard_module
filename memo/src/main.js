@@ -408,12 +408,14 @@ ipcMain.handle('set-click-through-hotspot', (_event, active) => {
 });
 ipcMain.handle('minimize-to-orb', () => minimizeToOrb());
 ipcMain.handle('restore-from-orb', () => restoreFromOrb());
-ipcMain.handle('move-orb', (_event, { x, y }) => {
-  if (!mainWindow || !orbMode || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+ipcMain.handle('move-orb', (_event, { deltaX, deltaY }) => {
+  if (!mainWindow || !orbMode || !Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return null;
   const size = mainWindow.getBounds();
-  const { workArea } = screen.getDisplayNearestPoint({ x, y });
-  const clampedX = Math.max(workArea.x, Math.min(Math.round(x), workArea.x + workArea.width - size.width));
-  const clampedY = Math.max(workArea.y, Math.min(Math.round(y), workArea.y + workArea.height - size.height));
+  const requestedX = size.x + deltaX;
+  const requestedY = size.y + deltaY;
+  const { workArea } = screen.getDisplayNearestPoint({ x: requestedX, y: requestedY });
+  const clampedX = Math.max(workArea.x, Math.min(Math.round(requestedX), workArea.x + workArea.width - size.width));
+  const clampedY = Math.max(workArea.y, Math.min(Math.round(requestedY), workArea.y + workArea.height - size.height));
   mainWindow.setPosition(clampedX, clampedY);
   return { x: clampedX, y: clampedY };
 });

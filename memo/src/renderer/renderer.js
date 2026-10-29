@@ -589,7 +589,7 @@ async function boot() {
   const orb = $('#orb-restore');
   let orbPress = null;
   let suppressOrbClick = false;
-  const moveOrb = (event) => window.steward.moveOrb({ x: Math.round(event.screenX - event.clientX), y: Math.round(event.screenY - event.clientY) });
+  const moveOrb = (event) => window.steward.moveOrb({ deltaX: Math.round(event.movementX), deltaY: Math.round(event.movementY) });
   orb.addEventListener('mousedown', (event) => {
     if (!document.body.classList.contains('orb-mode')) return;
     event.preventDefault();
