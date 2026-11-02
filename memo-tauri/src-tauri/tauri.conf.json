@@ -22,25 +22,6 @@
         "skipTaskbar": true,
         "resizable": true,
         "visibleOnAllWorkspaces": true
-      },
-      {
-        "label": "unlock",
-        "title": "Unlock Memo",
-        "url": "unlock.html",
-        "width": 44,
-        "height": 44,
-        "minWidth": 44,
-        "minHeight": 44,
-        "maxWidth": 44,
-        "maxHeight": 44,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "resizable": false,
-        "visible": false,
-        "focus": false,
-        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {

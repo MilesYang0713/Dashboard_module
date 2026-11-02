@@ -17,20 +17,44 @@ const translations = {
     completed: 'Completed items', hideNow: 'Hide immediately', todayEnd: 'Keep until today ends', keep24: 'Keep for 24 hours',
     lockWindow: 'Lock position and size', clickThrough: 'Lock interaction and click through', topmost: 'Always on top', launch: 'Launch at login', quit: 'Quit Memo',
     history: 'Update history', register: 'Event register', deleted: 'Deleted events', overview: 'Work overview', adaptive: 'Adaptive contrast',
-    created: 'Created', updated: 'Updated', completedAction: 'Completed', reopened: 'Reopened', deletedAction: 'Deleted', restored: 'Restored', edit: 'Edit event', delete: 'Delete event', done: 'Complete event'
+    created: 'Created', updated: 'Updated', completedAction: 'Completed', reopened: 'Reopened', deletedAction: 'Deleted', restored: 'Restored', edit: 'Edit event', delete: 'Delete event', done: 'Complete event',
+    filter: 'Filter', sortTime: 'Time', sortDue: 'Deadline', sortStart: 'Start', department: 'Memo events', ready: 'Ready',
+    contentOpacity: 'Content opacity', backgroundOpacity: 'Background opacity', themeColor: 'Theme colour', categoryManager: 'Category manager', newCategory: 'New category name', addCategory: 'Add',
+    total: 'Total', open: 'Open', complete: 'Done', completion: 'Completion', trend: 'Activity trend', last7: 'Last 7 days',
+    work: 'Work', status: 'Status', action: 'Action', noTime: 'No schedule', overdue: 'Overdue', started: 'Start time passed', within6: 'within 6 hours', within12: 'within 12 hours', daysUntil: 'days until', start: 'Start', deadline: 'deadline'
   },
   'zh-CN': {}
 };
 const t = (key, fallback) => translations[locale()]?.[key] || fallback;
+const originalText = new WeakMap();
+const bilingualText = {
+  'Filter': { en: 'Filter', 'zh-CN': '筛选' }, '时间': { en: 'Time', 'zh-CN': '时间' }, '截止': { en: 'Deadline', 'zh-CN': '截止' }, '开始': { en: 'Start', 'zh-CN': '开始' },
+  '备忘与事件部': { en: 'Memo events', 'zh-CN': '备忘与事件部' }, '类别：': { en: 'Category:', 'zh-CN': '类别：' }, '优先级：': { en: 'Priority:', 'zh-CN': '优先级：' },
+  '提前提醒': { en: 'Advance reminder', 'zh-CN': '提前提醒' }, '天（默认 1 天）': { en: 'days (default: 1)', 'zh-CN': '天（默认 1 天）' }, '开始日期': { en: 'Start date', 'zh-CN': '开始日期' }, '开始时间': { en: 'Start time', 'zh-CN': '开始时间' }, '截止日期': { en: 'Due date', 'zh-CN': '截止日期' }, '截止时间': { en: 'Due time', 'zh-CN': '截止时间' },
+  '内容透明度': { en: 'Content opacity', 'zh-CN': '内容透明度' }, '背景透明度': { en: 'Background opacity', 'zh-CN': '背景透明度' }, '主题颜色': { en: 'Theme colour', 'zh-CN': '主题颜色' }, '数据保存位置': { en: 'Data location', 'zh-CN': '数据保存位置' }, '更改': { en: 'Change', 'zh-CN': '更改' }, '完成后主页显示': { en: 'Completed items', 'zh-CN': '完成后主页显示' }, '立即隐藏': { en: 'Hide immediately', 'zh-CN': '立即隐藏' }, '保留到今天结束': { en: 'Keep until today ends', 'zh-CN': '保留到今天结束' }, '保留 24 小时': { en: 'Keep for 24 hours', 'zh-CN': '保留 24 小时' },
+  '添加': { en: 'Add', 'zh-CN': '添加' }, '自动': { en: 'Automatic', 'zh-CN': '自动' }, '最高': { en: 'Highest', 'zh-CN': '最高' }, '高': { en: 'High', 'zh-CN': '高' }, '普通': { en: 'Normal', 'zh-CN': '普通' }, '已就绪': { en: 'Ready', 'zh-CN': '已就绪' }, '显示设置': { en: 'Display settings', 'zh-CN': '显示设置' }
+};
+
+function translateStaticText() {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const original = originalText.get(node) ?? node.nodeValue;
+    originalText.set(node, original);
+    const trimmed = original.trim(); const translation = bilingualText[trimmed]?.[locale()];
+    if (translation) node.nodeValue = original.replace(trimmed, translation);
+  }
+}
 
 function applyLanguage() {
   const en = locale() === 'en';
   document.documentElement.lang = en ? 'en' : 'zh-CN';
+  document.documentElement.dataset.language = locale();
+  translateStaticText();
   $('#language-label').textContent = t('language', '系统语言');
   $('#language').value = locale();
   $('#capture-sheet-title').textContent = editingEventId ? t('save', '修改事件') : t('add', '添加事件');
   $('#capture-button').textContent = editingEventId ? t('save', '保存修改') : t('add', '添加');
-  const staticText = [['#settings-sheet h2', 'settings', '显示设置'], ['#setting-adaptive-contrast', 'adaptive', '自动对比色'], ['#setting-launch-at-login', 'launch', '开机自动运行'], ['#setting-window-lock', 'lockWindow', '固定窗口位置与尺寸'], ['#setting-click-through', 'clickThrough', '锁定交互并点击穿透'], ['#setting-topmost', 'topmost', '始终置顶'], ['#quit-app', 'quit', '退出备忘录'], ['#analytics h3', 'overview', 'Work overview'], ['#register h3', 'register', 'Event register'], ['#trash h3', 'deleted', 'Deleted events'], ['#toggle-updates strong', 'history', 'Update history']];
+  const staticText = [['#settings-sheet h2', 'settings', '显示设置'], ['#setting-adaptive-contrast', 'adaptive', '自动对比色'], ['#setting-launch-at-login', 'launch', '开机自动运行'], ['#setting-window-lock', 'lockWindow', '固定窗口位置与尺寸'], ['#setting-click-through', 'clickThrough', '锁定交互并点击穿透'], ['#setting-topmost', 'topmost', '始终置顶'], ['#quit-app', 'quit', '退出备忘录']];
   for (const [selector, key, fallback] of staticText) { const element = $(selector); if (element) element.childNodes[0] ? element.childNodes[0].textContent = t(key, fallback) : element.textContent = t(key, fallback); }
 }
 
@@ -44,8 +68,8 @@ const defaultCategories = [
 ];
 const categories = () => state?.settings?.categories?.length ? state.settings.categories : defaultCategories;
 const categoryFor = (id) => categories().find((item) => item.id === id) || categories()[0];
-const formatTime = (time) => time ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(time)) : null;
-const formatDateOnly = (date) => date ? new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00`)) : null;
+const formatTime = (time) => time ? new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(time)) : null;
+const formatDateOnly = (date) => date ? new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00`)) : null;
 const eventTime = (item, kind, endOfDay = false) => {
   const timeKey = kind === 'due' ? 'dueAt' : 'startAt';
   const dateKey = kind === 'due' ? 'dueDate' : 'startDate';
@@ -69,12 +93,12 @@ const formatSchedulePoint = (item, kind) => {
 };
 const formatSchedule = (item) => [formatSchedulePoint(item, 'start'), formatSchedulePoint(item, 'due')].filter(Boolean).join(' — ');
 const formatActivity = (item) => {
-  const created = item.createdAt ? `创建 ${formatTime(item.createdAt)}` : null;
-  const completed = item.completedAt ? `完成 ${formatTime(item.completedAt)}` : null;
+  const created = item.createdAt ? `${t('created', '创建')} ${formatTime(item.createdAt)}` : null;
+  const completed = item.completedAt ? `${t('completedAction', '完成')} ${formatTime(item.completedAt)}` : null;
   return [created, completed].filter(Boolean).join(' · ');
 };
 
-const priorityLabels = { high: '最高', medium: '高', normal: '普通' };
+const priorityLabels = () => locale() === 'en' ? { high: 'Highest', medium: 'High', normal: 'Normal' } : { high: '最高', medium: '高', normal: '普通' };
 
 const dateInputValue = (value) => {
   if (!value) return '';
@@ -96,8 +120,8 @@ function eventAlert(item) {
   const reminderDays = Number(item.reminderDays) || 0;
   const startTime = eventTime(item, 'start');
   const dueTime = eventTime(item, 'due', true);
-  if (dueTime && dueTime < now) return { tone: 'overdue', label: '！已过截止时间' };
-  if (startTime && startTime < now && !dueTime) return { tone: 'started', label: '！已过开始时间' };
+  if (dueTime && dueTime < now) return { tone: 'overdue', label: `！${t('overdue', '已过截止时间')}` };
+  if (startTime && startTime < now && !dueTime) return { tone: 'started', label: `！${t('started', '已过开始时间')}` };
 
   // The advance reminder follows the first upcoming moment: start when there
   // is one, otherwise deadline. After a start has passed, deadline is next.
@@ -105,13 +129,13 @@ function eventAlert(item) {
   const nextTime = nextKind === 'start' ? startTime : dueTime;
   if (nextTime != null) {
     const hours = (nextTime - now) / 3_600_000;
-    const verb = nextKind === 'start' ? '开始' : '截止';
+    const verb = nextKind === 'start' ? t('start', '开始') : t('deadline', '截止');
     const tonePrefix = nextKind === 'start' ? 'start-' : '';
-    if (hours <= 6) return { tone: `${tonePrefix}urgent`, label: `！6 小时内${verb}` };
-    if (hours <= 12) return { tone: `${tonePrefix}soon`, label: `！12 小时内${verb}` };
-    if (reminderDays > 0 && hours <= reminderDays * 24) return { tone: `${tonePrefix}reminder`, label: `！提前提醒：${Math.ceil(hours / 24)} 天后${verb}` };
+    if (hours <= 6) return { tone: `${tonePrefix}urgent`, label: locale() === 'en' ? `! ${verb} ${t('within6', 'within 6 hours')}` : `！6 小时内${verb}` };
+    if (hours <= 12) return { tone: `${tonePrefix}soon`, label: locale() === 'en' ? `! ${verb} ${t('within12', 'within 12 hours')}` : `！12 小时内${verb}` };
+    if (reminderDays > 0 && hours <= reminderDays * 24) return { tone: `${tonePrefix}reminder`, label: locale() === 'en' ? `! ${Math.ceil(hours / 24)} ${t('daysUntil', 'days until')} ${verb}` : `！提前提醒：${Math.ceil(hours / 24)} 天后${verb}` };
   }
-  if (startTime && startTime < now) return { tone: 'started', label: '！已过开始时间' };
+  if (startTime && startTime < now) return { tone: 'started', label: `！${t('started', '已过开始时间')}` };
   return null;
 }
 
@@ -256,7 +280,7 @@ function renderEventRegister(events) {
     const values = [
       item.title,
       categoryFor(item.category).label,
-      priorityLabels[item.priority] || '普通',
+      priorityLabels()[item.priority] || t('priority', '普通'),
       item.completed ? '完成' : '待办',
       formatTime(item.createdAt) || '—',
       formatTime(item.updatedAt || item.completedAt || item.createdAt) || '—',
@@ -791,6 +815,15 @@ async function boot() {
   };
   $('#event-list').addEventListener('wheel', browseLockedList, { passive: false });
   $('#locked-scroll-rail').addEventListener('wheel', browseLockedList, { passive: false });
+  const updateNativeLockRegions = () => {
+    if (!window.steward.setLockedInteractionRegions) return;
+    const toScreenRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: Math.round(window.screenX + rect.left), top: Math.round(window.screenY + rect.top), right: Math.round(window.screenX + rect.right), bottom: Math.round(window.screenY + rect.bottom) };
+    };
+    window.steward.setLockedInteractionRegions({ scroll: toScreenRect($('#event-list')), unlock: toScreenRect($('#dock-toggle')) });
+  };
+  window.addEventListener('resize', updateNativeLockRegions);
   $('.floating-actions').addEventListener('mouseleave', () => {
     if (!clickThroughEnabled || !actionHotspotActive) return;
     actionHotspotActive = false;
@@ -808,7 +841,12 @@ async function boot() {
     if (enabled) collapseDockForInteractionLock();
     else { actionHotspotActive = false; scrollHotspotActive = false; }
     render();
+    requestAnimationFrame(updateNativeLockRegions);
   });
+  window.steward.onNativeLockedWheel?.(({ deltaY }) => {
+    if (clickThroughEnabled) $('#event-list').scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
+  });
+  window.steward.onNativeUnlockRequested?.(() => window.steward.unlockClickThrough?.());
   window.steward.onOrbModeChanged((enabled) => document.body.classList.toggle('orb-mode', enabled));
   window.steward.onStateChanged((nextState) => {
     state = nextState;
@@ -817,6 +855,7 @@ async function boot() {
   renderClock();
   setInterval(renderClock, 1000);
   setupResizeHandles();
+  requestAnimationFrame(updateNativeLockRegions);
 }
 
 boot();

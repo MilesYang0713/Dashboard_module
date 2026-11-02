@@ -1,0 +1,16 @@
+/* Every label has exactly one visible language. The paired historical markup
+   remains in the DOM to preserve the existing layout and release record. */
+html[data-language="en"] .history-zh,
+html[data-language="en"] .category-heading small,
+html[data-language="en"] .release-heading small,
+html[data-language="en"] .release-list article > span,
+html[data-language="en"] .chart-copy > span { display: none; }
+html[data-language="zh-CN"] .analytics h3,
+html[data-language="zh-CN"] .activity-panel h3,
+html[data-language="zh-CN"] .trash-panel h3,
+html[data-language="zh-CN"] .category-heading i,
+html[data-language="zh-CN"] .category-heading strong,
+html[data-language="zh-CN"] .release-heading i,
+html[data-language="zh-CN"] .release-heading strong,
+html[data-language="zh-CN"] .release-list article > strong,
+html[data-language="zh-CN"] .chart-copy > strong { display: none; }
