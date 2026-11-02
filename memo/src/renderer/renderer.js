@@ -619,22 +619,33 @@ function closeSheet(id) {
 
 function setupResizeHandles() {
   let resizeSession = null;
+  let resizeFrame = 0;
   for (const handle of document.querySelectorAll('.resize-handle')) {
     handle.addEventListener('pointerdown', async (event) => {
       event.preventDefault();
       const bounds = await window.steward.getWindowBounds();
       if (bounds.locked) return;
-      resizeSession = { edge: handle.dataset.edge, startX: event.screenX, startY: event.screenY, startBounds: bounds };
+      // Tauri reports native physical pixels while DOM pointer coordinates are
+      // CSS pixels. Capture the ratio once so a left/top resize never fights
+      // the window manager on high-DPI displays.
+      resizeSession = { edge: handle.dataset.edge, startX: event.screenX, startY: event.screenY, startBounds: bounds, scaleX: bounds.width / Math.max(1, window.innerWidth), scaleY: bounds.height / Math.max(1, window.innerHeight), latestX: event.screenX, latestY: event.screenY };
       handle.setPointerCapture(event.pointerId);
     });
   }
   window.addEventListener('pointermove', (event) => {
     if (!resizeSession) return;
-    const deltaX = Math.round(event.screenX - resizeSession.startX);
-    const deltaY = Math.round(event.screenY - resizeSession.startY);
-    window.steward.resizeWindow({ edge: resizeSession.edge, startBounds: resizeSession.startBounds, deltaX, deltaY });
+    resizeSession.latestX = event.screenX;
+    resizeSession.latestY = event.screenY;
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      if (!resizeSession) return;
+      const deltaX = Math.round((resizeSession.latestX - resizeSession.startX) * resizeSession.scaleX);
+      const deltaY = Math.round((resizeSession.latestY - resizeSession.startY) * resizeSession.scaleY);
+      window.steward.resizeWindow({ edge: resizeSession.edge, startBounds: resizeSession.startBounds, deltaX, deltaY });
+    });
   });
-  window.addEventListener('pointerup', () => { resizeSession = null; });
+  window.addEventListener('pointerup', () => { resizeSession = null; if (resizeFrame) { cancelAnimationFrame(resizeFrame); resizeFrame = 0; } });
 }
 
 async function boot() {
