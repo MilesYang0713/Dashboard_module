@@ -823,11 +823,14 @@ async function boot() {
   };
   $('#event-list').addEventListener('wheel', browseLockedList, { passive: false });
   $('#locked-scroll-rail').addEventListener('wheel', browseLockedList, { passive: false });
-  const updateNativeLockRegions = () => {
+  const updateNativeLockRegions = async () => {
     if (!window.steward.setLockedInteractionRegions) return;
+    const bounds = await window.steward.getWindowBounds();
+    const scaleX = bounds.width / Math.max(1, window.innerWidth);
+    const scaleY = bounds.height / Math.max(1, window.innerHeight);
     const toScreenRect = (element) => {
       const rect = element.getBoundingClientRect();
-      return { left: Math.round(window.screenX + rect.left), top: Math.round(window.screenY + rect.top), right: Math.round(window.screenX + rect.right), bottom: Math.round(window.screenY + rect.bottom) };
+      return { left: Math.round(bounds.x + rect.left * scaleX), top: Math.round(bounds.y + rect.top * scaleY), right: Math.round(bounds.x + rect.right * scaleX), bottom: Math.round(bounds.y + rect.bottom * scaleY) };
     };
     window.steward.setLockedInteractionRegions({ scroll: toScreenRect($('#event-list')), unlock: toScreenRect($('#dock-toggle')) });
   };

@@ -307,7 +307,7 @@ fn set_categories(app: AppHandle, memo: State<MemoState>, categories: Value) -> 
 #[tauri::command]
 fn toggle_topmost(app: AppHandle, memo: State<MemoState>, window: WebviewWindow) -> Result<Value, String> { let current = load_state(&memo)?["settings"]["alwaysOnTop"].as_bool().unwrap_or(true); window.set_always_on_top(!current).map_err(|e| e.to_string())?; patch_settings(&app, &memo, "alwaysOnTop", json!(!current)) }
 #[tauri::command]
-fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, window: WebviewWindow) -> Result<Value, String> { let current = load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true); window.set_resizable(current).map_err(|e| e.to_string())?; patch_settings(&app, &memo, "windowLocked", json!(!current)) }
+fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, _window: WebviewWindow) -> Result<Value, String> { let current = load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true); patch_settings(&app, &memo, "windowLocked", json!(!current)) }
 
 fn apply_click_through(window: &WebviewWindow, runtime: &WindowRuntime) -> Result<(), String> { window.set_ignore_cursor_events(runtime.click_through && !runtime.hotspot_active).map_err(|e| e.to_string()) }
 #[tauri::command]
@@ -413,7 +413,9 @@ pub fn run() {
                 let state = app.state::<MemoState>();
                 if let Ok(saved) = load_state(&state) {
                     let _ = window.set_always_on_top(saved["settings"]["alwaysOnTop"].as_bool().unwrap_or(true));
-                    let _ = window.set_resizable(!saved["settings"]["windowLocked"].as_bool().unwrap_or(true));
+                    // Memo owns resizing through its edge handles. Keeping the native
+                    // border disabled prevents Tauri and the renderer fighting over size.
+                    let _ = window.set_resizable(false);
                 }
             }
             Ok(())
