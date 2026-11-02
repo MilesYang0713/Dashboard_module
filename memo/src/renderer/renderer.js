@@ -54,6 +54,14 @@ function applyLanguage() {
   $('#language').value = locale();
   $('#capture-sheet-title').textContent = editingEventId ? t('save', '修改事件') : t('add', '添加事件');
   $('#capture-button').textContent = editingEventId ? t('save', '保存修改') : t('add', '添加');
+  const metricLabels = locale() === 'en' ? ['Total', 'Open', 'Done'] : ['全部', '待办', '完成'];
+  document.querySelectorAll('.metric-grid span').forEach((element, index) => { element.textContent = metricLabels[index] || ''; });
+  const registerLabels = locale() === 'en' ? ['Work', 'Category', 'Priority', 'Status', 'Created', 'Updated', 'Deadline', 'Action'] : ['工作', '类别', '优先级', '状态', '已创建', '已更新', '截止日期', '操作'];
+  document.querySelectorAll('.event-register thead th').forEach((element, index) => { element.textContent = registerLabels[index] || ''; });
+  const categoryHeading = $('#toggle-categories');
+  if (categoryHeading) categoryHeading.setAttribute('aria-label', t('categoryManager', '类别管理'));
+  $('#new-category-label').placeholder = t('newCategory', '新类别名称');
+  $('#add-category').textContent = t('addCategory', '添加');
   const staticText = [['#settings-sheet h2', 'settings', '显示设置'], ['#setting-adaptive-contrast', 'adaptive', '自动对比色'], ['#setting-launch-at-login', 'launch', '开机自动运行'], ['#setting-window-lock', 'lockWindow', '固定窗口位置与尺寸'], ['#setting-click-through', 'clickThrough', '锁定交互并点击穿透'], ['#setting-topmost', 'topmost', '始终置顶'], ['#quit-app', 'quit', '退出备忘录']];
   for (const [selector, key, fallback] of staticText) { const element = $(selector); if (element) element.childNodes[0] ? element.childNodes[0].textContent = t(key, fallback) : element.textContent = t(key, fallback); }
 }
