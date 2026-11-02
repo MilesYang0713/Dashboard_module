@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
-#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM}, UI::WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage, HHOOK, MSLLHOOKSTRUCT, MSG, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEWHEEL}};
+#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM}, UI::{Input::KeyboardAndMouse::ReleaseCapture, WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, SendMessageW, SetWindowsHookExW, TranslateMessage, HHOOK, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT, MSLLHOOKSTRUCT, MSG, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEWHEEL, WM_NCLBUTTONDOWN}}};
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
     ("task", "事情", "#9c8cff"), ("learning", "学习", "#65b9ff"),
@@ -307,7 +307,12 @@ fn set_categories(app: AppHandle, memo: State<MemoState>, categories: Value) -> 
 #[tauri::command]
 fn toggle_topmost(app: AppHandle, memo: State<MemoState>, window: WebviewWindow) -> Result<Value, String> { let current = load_state(&memo)?["settings"]["alwaysOnTop"].as_bool().unwrap_or(true); window.set_always_on_top(!current).map_err(|e| e.to_string())?; patch_settings(&app, &memo, "alwaysOnTop", json!(!current)) }
 #[tauri::command]
-fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, _window: WebviewWindow) -> Result<Value, String> { let current = load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true); patch_settings(&app, &memo, "windowLocked", json!(!current)) }
+fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, window: WebviewWindow) -> Result<Value, String> {
+    let current = load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true);
+    let next_locked = !current;
+    window.set_resizable(!next_locked).map_err(|e| e.to_string())?;
+    patch_settings(&app, &memo, "windowLocked", json!(next_locked))
+}
 
 fn apply_click_through(window: &WebviewWindow, runtime: &WindowRuntime) -> Result<(), String> { window.set_ignore_cursor_events(runtime.click_through && !runtime.hotspot_active).map_err(|e| e.to_string()) }
 #[tauri::command]
@@ -332,6 +337,28 @@ fn set_click_through_hotspot(memo: State<MemoState>, window: WebviewWindow, acti
 
 #[tauri::command]
 fn get_window_bounds(memo: State<MemoState>, window: WebviewWindow) -> Result<Value, String> { let b = bounds(&window)?; let locked = load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true); Ok(json!({"x": b.x, "y": b.y, "width": b.width, "height": b.height, "locked": locked })) }
+#[tauri::command]
+fn start_resize_dragging(memo: State<MemoState>, window: WebviewWindow, edge: String) -> Result<(), String> {
+    if load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true) { return Ok(()); }
+    #[cfg(windows)] {
+        let hit_test = match edge.as_str() {
+            "left" => HTLEFT, "right" => HTRIGHT, "top" => HTTOP, "bottom" => HTBOTTOM,
+            "top-left" => HTTOPLEFT, "top-right" => HTTOPRIGHT,
+            "bottom-left" => HTBOTTOMLEFT, "bottom-right" => HTBOTTOMRIGHT,
+            _ => return Err("未知的调整方向".into()),
+        };
+        let hwnd = window.hwnd().map_err(|e| e.to_string())?;
+        unsafe {
+            // Let Windows own one resize gesture. It updates position and size
+            // together, eliminating the left/top edge wobble caused by two IPC calls.
+            let _ = ReleaseCapture();
+            SendMessageW(hwnd, WM_NCLBUTTONDOWN, Some(WPARAM(hit_test as usize)), Some(LPARAM(0)));
+        }
+        return Ok(());
+    }
+    #[cfg(not(windows))]
+    { let _ = window; Err("当前系统暂不支持原生边缘缩放".into()) }
+}
 #[tauri::command]
 fn resize_window(memo: State<MemoState>, window: WebviewWindow, payload: Value) -> Result<Value, String> {
     if load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true) { return Ok(Value::Null); }
@@ -413,14 +440,13 @@ pub fn run() {
                 let state = app.state::<MemoState>();
                 if let Ok(saved) = load_state(&state) {
                     let _ = window.set_always_on_top(saved["settings"]["alwaysOnTop"].as_bool().unwrap_or(true));
-                    // Memo owns resizing through its edge handles. Keeping the native
-                    // border disabled prevents Tauri and the renderer fighting over size.
-                    let _ = window.set_resizable(false);
+                    let locked = saved["settings"]["windowLocked"].as_bool().unwrap_or(true);
+                    let _ = window.set_resizable(!locked);
                 }
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_language, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, unlock_click_through, set_locked_interaction_regions, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
+        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_language, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, unlock_click_through, set_locked_interaction_regions, set_click_through_hotspot, get_window_bounds, start_resize_dragging, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
         .run(tauri::generate_context!())
         .expect("Memo Tauri 无法启动");
 }

@@ -20,7 +20,8 @@
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "resizable": false,
+        "resizable": true,
+        "backgroundColor": "#00000000",
         "visibleOnAllWorkspaces": true
       }
     ],
