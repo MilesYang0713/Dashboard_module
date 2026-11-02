@@ -623,13 +623,6 @@ function setupResizeHandles() {
   for (const handle of document.querySelectorAll('.resize-handle')) {
     handle.addEventListener('pointerdown', async (event) => {
       event.preventDefault();
-      // Tauri delegates the whole gesture to Windows. This is atomic: the
-      // opposite edge stays fixed and there is no DOM/native resize feedback
-      // loop. Electron keeps the compatible fallback below.
-      if (window.steward.startResizeDragging) {
-        await window.steward.startResizeDragging(handle.dataset.edge);
-        return;
-      }
       const bounds = await window.steward.getWindowBounds();
       if (bounds.locked) return;
       // Tauri reports native physical pixels while DOM pointer coordinates are

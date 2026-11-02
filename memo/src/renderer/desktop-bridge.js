@@ -66,7 +66,6 @@
       return path ? invoke('write_export', { format, path }) : { canceled: true };
     },
     getWindowBounds: () => invoke('get_window_bounds'),
-    startResizeDragging: (edge) => invoke('start_resize_dragging', { edge }),
     resizeWindow: (payload) => invoke('resize_window', { payload })
   };
 
