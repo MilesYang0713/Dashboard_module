@@ -258,8 +258,27 @@ fn toggle_topmost(app: AppHandle, memo: State<MemoState>, window: WebviewWindow)
 fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, window: WebviewWindow) -> Result<Value, String> { let current = load_state(&memo)?["settings"]["windowLocked"].as_bool().unwrap_or(true); window.set_resizable(current).map_err(|e| e.to_string())?; patch_settings(&app, &memo, "windowLocked", json!(!current)) }
 
 fn apply_click_through(window: &WebviewWindow, runtime: &WindowRuntime) -> Result<(), String> { window.set_ignore_cursor_events(runtime.click_through && !runtime.hotspot_active).map_err(|e| e.to_string()) }
+fn sync_unlock_control(app: &AppHandle, main: &WebviewWindow, visible: bool) {
+    let Some(unlock) = app.get_webview_window("unlock") else { return; };
+    if visible {
+        if let Ok(main_bounds) = bounds(main) {
+            let x = main_bounds.x + main_bounds.width as i32 - 48;
+            let y = main_bounds.y + main_bounds.height as i32 - 48;
+            let _ = unlock.set_position(PhysicalPosition::new(x, y));
+        }
+        let _ = unlock.set_ignore_cursor_events(false);
+        let _ = unlock.show();
+    } else { let _ = unlock.hide(); }
+}
 #[tauri::command]
-fn toggle_click_through(memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
+fn toggle_click_through(app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); sync_unlock_control(&app, &window, enabled); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
+#[tauri::command]
+fn unlock_click_through(app: AppHandle, memo: State<MemoState>) -> Result<bool, String> {
+    let main = app.get_webview_window("main").ok_or("Memo 主窗口不存在")?;
+    let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?;
+    runtime.click_through = false; runtime.hotspot_active = false; apply_click_through(&main, &runtime)?;
+    drop(runtime); sync_unlock_control(&app, &main, false); let _ = main.emit("click-through-changed", false); Ok(false)
+}
 #[tauri::command]
 fn set_click_through_hotspot(memo: State<MemoState>, window: WebviewWindow, active: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; if !runtime.click_through { return Ok(false); } runtime.hotspot_active = active; apply_click_through(&window, &runtime)?; Ok(true) }
 
@@ -336,7 +355,7 @@ pub fn run() {
                 if event.state() != ShortcutState::Pressed { return; }
                 if let Some(window) = shortcut_app.get_webview_window("main") {
                     if shortcut == &toggle_window { if window.is_visible().unwrap_or(true) { let _ = window.hide(); } else { let _ = window.show(); let _ = window.set_focus(); } }
-                    if shortcut == &toggle_click { let state = shortcut_app.state::<MemoState>(); if let Ok(mut runtime) = state.window.lock() { runtime.click_through = !runtime.click_through; let _ = apply_click_through(&window, &runtime); let _ = window.emit("click-through-changed", runtime.click_through); }; }
+                    if shortcut == &toggle_click { let state = shortcut_app.state::<MemoState>(); if let Ok(mut runtime) = state.window.lock() { runtime.click_through = !runtime.click_through; let _ = apply_click_through(&window, &runtime); let enabled = runtime.click_through; drop(runtime); sync_unlock_control(&shortcut_app, &window, enabled); let _ = window.emit("click-through-changed", enabled); }; }
                 }
             }).build())?;
             app.global_shortcut().register(toggle_window)?;
@@ -350,7 +369,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_language, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
+        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_language, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, unlock_click_through, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
         .run(tauri::generate_context!())
         .expect("Memo Tauri 无法启动");
 }
