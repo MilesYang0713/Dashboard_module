@@ -21,7 +21,12 @@ const translations = {
     filter: 'Filter', sortTime: 'Time', sortDue: 'Deadline', sortStart: 'Start', department: 'Memo events', ready: 'Ready',
     contentOpacity: 'Content opacity', backgroundOpacity: 'Background opacity', themeColor: 'Theme colour', categoryManager: 'Category manager', newCategory: 'New category name', addCategory: 'Add',
     total: 'Total', open: 'Open', complete: 'Done', completion: 'Completion', trend: 'Activity trend', last7: 'Last 7 days',
-    work: 'Work', status: 'Status', action: 'Action', noTime: 'No schedule', overdue: 'Overdue', started: 'Start time passed', within6: 'within 6 hours', within12: 'within 12 hours', daysUntil: 'days until', start: 'Start', deadline: 'deadline'
+    work: 'Work', status: 'Status', action: 'Action', priority: 'Priority', noTime: 'No schedule', overdue: 'Overdue', started: 'Start time passed', within6: 'within 6 hours', within12: 'within 12 hours', daysUntil: 'days until', start: 'Start', deadline: 'deadline',
+    registerEmpty: 'No event records yet.', statusDone: 'Done', statusOpen: 'Open', allDay: 'all day', noDeadline: 'None', restoreTodo: 'Reopen', restoredTodo: 'Reopened as open', moveTrash: 'Move to Bin', movedTrash: 'Moved to Bin',
+    trashEmpty: 'Bin is empty.', deletedAt: 'Deleted', restore: 'Restore', restoredEvent: 'Event restored', purge: 'Delete forever', purged: 'Deleted forever', exportedTo: 'Exported to',
+    openCount: 'open', noCategoryEvents: 'No events in this category.', noEvents: 'No events yet.', startAdding: 'Use the + button to begin.', windowPinned: 'Window position and size are locked; click to unlock', windowFree: 'Window can move and resize; click to lock',
+    interactionLocked: 'Interaction is locked; click this lock to restore', interactionOpen: 'Lock interaction and click through', dockUnlock: 'Expand and unlock interaction', dockCollapse: 'Collapse quick actions', dockExpand: 'Expand quick actions',
+    categoryName: 'category name', categoryColor: 'category colour', categoryDelete: 'Delete', keepOneCategory: 'Keep at least one category', invalidSchedule: 'Deadline cannot be before start time.', titleRequired: 'Event text is required.', eventUpdated: 'Event updated.', categoryRequired: 'Enter a category name first.', categoryAdded: 'Category added:', storageUnchanged: 'Data location unchanged.', storageMoved: 'Data moved to the new location.', launchEnabled: 'Launch at login enabled.', launchDisabled: 'Launch at login disabled.', completionDetail: 'completed'
   },
   'zh-CN': {}
 };
@@ -200,7 +205,7 @@ function renderAnalytics() {
   $('#metric-done').textContent = completed;
   $('#donut-label').textContent = `${completion}%`;
   $('#status-donut').style.background = `conic-gradient(${state.settings.themeColor} 0 ${completion}%, rgba(255,255,255,.11) ${completion}% 100%)`;
-  $('#completion-detail').textContent = `${completed} / ${total} completed`;
+  $('#completion-detail').textContent = `${completed} / ${total} ${t('completionDetail', '完成')}`;
 
   const counts = categories().map((category) => ({ ...category, count: events.filter((item) => item.category === category.id).length }));
   const max = Math.max(1, ...counts.map((item) => item.count));
@@ -278,7 +283,7 @@ function renderEventRegister(events) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = 8;
-    cell.textContent = '还没有事件记录。';
+    cell.textContent = t('registerEmpty', '还没有事件记录。');
     row.append(cell);
     body.append(row);
     return;
@@ -289,10 +294,10 @@ function renderEventRegister(events) {
       item.title,
       categoryFor(item.category).label,
       priorityLabels()[item.priority] || t('priority', '普通'),
-      item.completed ? '完成' : '待办',
+      item.completed ? t('statusDone', '完成') : t('statusOpen', '待办'),
       formatTime(item.createdAt) || '—',
       formatTime(item.updatedAt || item.completedAt || item.createdAt) || '—',
-      formatTime(item.dueAt) || (item.dueDate ? `${formatDateOnly(item.dueDate)}（全天）` : '无')
+      formatTime(item.dueAt) || (item.dueDate ? `${formatDateOnly(item.dueDate)} (${t('allDay', '全天')})` : t('noDeadline', '无'))
     ];
     values.forEach((value, index) => {
       const cell = document.createElement('td');
@@ -306,22 +311,22 @@ function renderEventRegister(events) {
     if (item.completed) {
       const reopen = document.createElement('button');
       reopen.className = 'register-restore';
-      reopen.textContent = '恢复待办';
+      reopen.textContent = t('restoreTodo', '恢复待办');
       reopen.addEventListener('click', async () => {
         state = await window.steward.updateEvent(item.id, { completed: false });
         render();
-        showToast('已恢复为待办');
+        showToast(t('restoredTodo', '已恢复为待办'));
       });
       actions.append(reopen);
     }
     const remove = document.createElement('button');
     remove.className = 'register-delete';
-    remove.textContent = '删除';
-    remove.title = '移入回收站';
+    remove.textContent = t('delete', '删除');
+    remove.title = t('moveTrash', '移入回收站');
     remove.addEventListener('click', async () => {
       state = await window.steward.deleteEvent(item.id);
       render();
-      showToast('已移入回收站');
+      showToast(t('movedTrash', '已移入回收站'));
     });
     actions.append(remove);
     row.append(actions);
@@ -336,7 +341,7 @@ function renderTrash() {
   if (!deleted.length) {
     const empty = document.createElement('p');
     empty.className = 'trash-empty';
-    empty.textContent = '回收站为空。';
+    empty.textContent = t('trashEmpty', '回收站为空。');
     trash.append(empty);
     return;
   }
@@ -347,16 +352,16 @@ function renderTrash() {
     const title = document.createElement('strong');
     title.textContent = item.title;
     const time = document.createElement('small');
-    time.textContent = `删除于 ${formatTime(item.deletedAt) || '—'}`;
+    time.textContent = `${t('deletedAt', '删除于')} ${formatTime(item.deletedAt) || '—'}`;
     copy.append(title, time);
     const actions = document.createElement('div');
     const restore = document.createElement('button');
-    restore.textContent = '恢复';
-    restore.addEventListener('click', async () => { state = await window.steward.restoreEvent(item.id); render(); showToast('已恢复事件'); });
+    restore.textContent = t('restore', '恢复');
+    restore.addEventListener('click', async () => { state = await window.steward.restoreEvent(item.id); render(); showToast(t('restoredEvent', '已恢复事件')); });
     const purge = document.createElement('button');
     purge.className = 'purge';
-    purge.textContent = '永久删除';
-    purge.addEventListener('click', async () => { state = await window.steward.purgeEvent(item.id); render(); showToast('已永久删除'); });
+    purge.textContent = t('purge', '永久删除');
+    purge.addEventListener('click', async () => { state = await window.steward.purgeEvent(item.id); render(); showToast(t('purged', '已永久删除')); });
     actions.append(restore, purge);
     row.append(copy, actions);
     trash.append(row);
@@ -365,7 +370,7 @@ function renderTrash() {
 
 async function exportData(format) {
   const result = await window.steward.exportEvents(format);
-  if (!result.canceled) showToast(`已导出到 ${result.filePath}`);
+  if (!result.canceled) showToast(`${t('exportedTo', '已导出到')} ${result.filePath}`);
 }
 
 function showToast(text) {
@@ -409,11 +414,11 @@ function renderCategoryManager() {
     label.type = 'text';
     label.maxLength = 18;
     label.value = category.label;
-    label.setAttribute('aria-label', `${category.label} 类别名称`);
+    label.setAttribute('aria-label', `${category.label} ${t('categoryName', '类别名称')}`);
     const color = document.createElement('input');
     color.type = 'color';
     color.value = category.color;
-    color.setAttribute('aria-label', `${category.label} 类别颜色`);
+    color.setAttribute('aria-label', `${category.label} ${t('categoryColor', '类别颜色')}`);
     const update = () => {
       const next = currentCategories.map((item) => item.id === category.id ? { ...item, label: label.value.trim() || item.label, color: color.value } : item);
       saveCategories(next);
@@ -422,9 +427,9 @@ function renderCategoryManager() {
     color.addEventListener('change', update);
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.textContent = '删除';
+    remove.textContent = t('categoryDelete', '删除');
     remove.disabled = currentCategories.length === 1;
-    remove.title = currentCategories.length === 1 ? '至少保留一个类别' : `删除 ${category.label}`;
+    remove.title = currentCategories.length === 1 ? t('keepOneCategory', '至少保留一个类别') : `${t('categoryDelete', '删除')} ${category.label}`;
     remove.addEventListener('click', () => saveCategories(currentCategories.filter((item) => item.id !== category.id)));
     row.append(label, color, remove);
     list.append(row);
@@ -441,7 +446,7 @@ function renderCategoryControls() {
 function render() {
   applyLanguage();
   const events = state.events || [];
-  $('#event-count').textContent = `${events.filter((item) => !item.completed).length} 项待办`;
+  $('#event-count').textContent = `${events.filter((item) => !item.completed).length} ${t('openCount', '项待办')}`;
   $('#content-opacity').value = state.settings.contentOpacity;
   $('#background-opacity').value = state.settings.backgroundOpacity;
   $('#theme-color').value = state.settings.themeColor;
@@ -462,11 +467,11 @@ function render() {
   $('#storage-path').value = storage?.path || '';
   $('#toggle-window-pin').classList.toggle('active', state.settings.windowLocked);
   $('#toggle-window-pin').textContent = state.settings.windowLocked ? '📌' : '📍';
-  $('#toggle-window-pin').title = state.settings.windowLocked ? '窗口位置和尺寸已固定；点击取消固定' : '窗口可移动和缩放；点击固定';
+  $('#toggle-window-pin').title = state.settings.windowLocked ? t('windowPinned', '窗口位置和尺寸已固定；点击取消固定') : t('windowFree', '窗口可移动和缩放；点击固定');
   $('#setting-click-through').classList.toggle('active', clickThroughEnabled);
   $('#toggle-click-through').classList.toggle('active', clickThroughEnabled);
   $('#toggle-click-through').textContent = clickThroughEnabled ? '🔒' : '🔓';
-  $('#toggle-click-through').title = clickThroughEnabled ? '已锁定交互；只有此锁可点击以恢复交互' : '锁定交互，让鼠标点击底层页面';
+  $('#toggle-click-through').title = clickThroughEnabled ? t('interactionLocked', '已锁定交互；只有此锁可点击以恢复交互') : t('interactionOpen', '锁定交互，让鼠标点击底层页面');
   renderCategoryControls();
   renderAnalytics();
   renderTrash();
@@ -474,7 +479,7 @@ function render() {
   list.replaceChildren();
   const visibleEvents = sortEvents(events.filter((item) => shouldShowInQueue(item) && (activeCategory === 'all' || item.category === activeCategory)));
   if (!visibleEvents.length) {
-    list.innerHTML = `<div class="empty">${events.length ? '这个类别暂时没有事件。' : '暂时没有事件。<br/>点击右下角 ＋ 开始吧。'}</div>`;
+    list.innerHTML = `<div class="empty">${events.length ? t('noCategoryEvents', '这个类别暂时没有事件。') : `${t('noEvents', '暂时没有事件。')}<br/>${t('startAdding', '点击右下角 ＋ 开始吧。')}`}</div>`;
     return;
   }
   for (const item of visibleEvents) {
@@ -548,8 +553,8 @@ function renderClock() {
 
 function resetEventEditor() {
   editingEventId = null;
-  $('#capture-sheet-title').textContent = '添加事件';
-  $('#capture-button').textContent = '添加';
+  $('#capture-sheet-title').textContent = t('add', '添加事件');
+  $('#capture-button').textContent = t('add', '添加');
   $('#memo').value = '';
   $('#event-category').value = categories()[0].id;
   $('#event-priority').value = 'auto';
@@ -562,8 +567,8 @@ function resetEventEditor() {
 
 function openEventEditor(item) {
   editingEventId = item.id;
-  $('#capture-sheet-title').textContent = '修改事件';
-  $('#capture-button').textContent = '保存修改';
+  $('#capture-sheet-title').textContent = t('save', '修改事件');
+  $('#capture-button').textContent = t('save', '保存修改');
   $('#memo').value = item.title || '';
   $('#event-category').value = categoryFor(item.category).id;
   $('#event-priority').value = item.priority || 'normal';
@@ -585,17 +590,17 @@ async function capture() {
   const priority = $('#event-priority').value;
   const reminderDays = Number($('#reminder-days').value) || 0;
   if (!isScheduleInputValid({ startDate, startAt, dueDate, dueAt })) {
-    showToast('截止时间不能早于开始时间。');
+    showToast(t('invalidSchedule', '截止时间不能早于开始时间。'));
     return;
   }
   if (editingEventId) {
     const title = input.value.trim();
-    if (!title) { showToast('事件内容不能为空。'); return; }
+    if (!title) { showToast(t('titleRequired', '事件内容不能为空。')); return; }
     state = await window.steward.updateEvent(editingEventId, { title, category, priority: priority === 'auto' ? 'normal' : priority, startDate: startAt ? null : startDate, startAt, dueDate: dueAt ? null : dueDate, dueAt, reminderDays });
     resetEventEditor();
     render();
     closeSheet('capture-sheet');
-    showToast('事件已修改。');
+    showToast(t('eventUpdated', '事件已修改。'));
     return;
   }
   const result = await window.steward.captureEvent({ text: input.value, startDate, startAt, dueDate, dueAt, reminderDays, category, priority });
@@ -652,7 +657,7 @@ async function boot() {
   const bootstrap = await window.steward.bootstrap();
   state = bootstrap.state;
   storage = bootstrap.storage;
-  $('#department-status').textContent = `${bootstrap.departments.map((item) => item.name).join('、')}已就绪`;
+  $('#department-status').textContent = `${bootstrap.departments.map((item) => item.name).join(locale() === 'en' ? ', ' : '、')} ${t('ready', '已就绪')}`;
   $('#category-filter').value = activeCategory;
   $('#sort-by').value = sortField;
   render();
@@ -661,11 +666,11 @@ async function boot() {
   $('#category-filter').addEventListener('change', (event) => { activeCategory = event.target.value; render(); });
   $('#add-category').addEventListener('click', async () => {
     const label = $('#new-category-label').value.trim();
-    if (!label) { showToast('请先填写类别名称。'); return; }
+    if (!label) { showToast(t('categoryRequired', '请先填写类别名称。')); return; }
     const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     await saveCategories([...categories(), { id, label, color: $('#new-category-color').value }]);
     $('#new-category-label').value = '';
-    showToast(`已添加类别：${label}`);
+    showToast(`${t('categoryAdded', '已添加类别：')} ${label}`);
   });
   $('#toggle-categories').addEventListener('click', () => {
     const content = $('#category-manager-content');
@@ -681,7 +686,7 @@ async function boot() {
   $('#setting-launch-at-login').addEventListener('click', async () => {
     storage = { ...storage, ...(await window.steward.setLaunchAtLogin(!storage?.launchAtLogin)) };
     render();
-    showToast(storage.launchAtLogin ? '已设为开机自动运行。' : '已关闭开机自动运行。');
+    showToast(storage.launchAtLogin ? t('launchEnabled', '已设为开机自动运行。') : t('launchDisabled', '已关闭开机自动运行。'));
   });
   $('#choose-storage-path').addEventListener('click', async () => {
     const result = await window.steward.chooseStorageDirectory();
@@ -690,7 +695,7 @@ async function boot() {
     state = result.state;
     storage = result.storage;
     render();
-    showToast(result.unchanged ? '保存位置未变。' : '数据已迁移到新保存位置。');
+    showToast(result.unchanged ? t('storageUnchanged', '保存位置未变。') : t('storageMoved', '数据已迁移到新保存位置。'));
   });
   $('#completed-visibility').addEventListener('change', async (event) => { state = await window.steward.setCompletedVisibility(event.target.value); render(); });
   const toggleWindowPin = async () => { state = await window.steward.toggleWindowLock(); render(); };
@@ -703,7 +708,7 @@ async function boot() {
   const collapseDockForInteractionLock = () => {
     $('#action-dock').classList.remove('expanded');
     $('#dock-toggle').setAttribute('aria-expanded', 'false');
-    $('#dock-toggle').title = '展开并解除交互锁定';
+    $('#dock-toggle').title = t('dockUnlock', '展开并解除交互锁定');
     actionHotspotActive = false;
     scrollHotspotActive = false;
     if (clickThroughEnabled) window.steward.setClickThroughHotspot(false);
@@ -729,14 +734,14 @@ async function boot() {
       await toggleClickThrough(true);
       $('#action-dock').classList.add('expanded');
       $('#dock-toggle').setAttribute('aria-expanded', 'true');
-      $('#dock-toggle').title = '收起快捷功能';
+      $('#dock-toggle').title = t('dockCollapse', '收起快捷功能');
       return;
     }
     const dock = $('#action-dock');
     const expanded = !dock.classList.contains('expanded');
     dock.classList.toggle('expanded', expanded);
     $('#dock-toggle').setAttribute('aria-expanded', String(expanded));
-    $('#dock-toggle').title = expanded ? '收起快捷功能' : '展开快捷功能';
+    $('#dock-toggle').title = expanded ? t('dockCollapse', '收起快捷功能') : t('dockExpand', '展开快捷功能');
   });
   $('#hide').addEventListener('click', () => window.steward.minimizeToOrb());
   const orb = $('#orb-restore');
@@ -882,7 +887,7 @@ async function boot() {
     // dock chevrons: restore interaction and open the quick-action drawer.
     $('#action-dock').classList.add('expanded');
     $('#dock-toggle').setAttribute('aria-expanded', 'true');
-    $('#dock-toggle').title = '收起快捷功能';
+    $('#dock-toggle').title = t('dockCollapse', '收起快捷功能');
   });
   window.steward.onOrbModeChanged((enabled) => document.body.classList.toggle('orb-mode', enabled));
   window.steward.onStateChanged((nextState) => {
