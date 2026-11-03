@@ -23,6 +23,21 @@
         "resizable": false,
         "backgroundColor": "#00000000",
         "visibleOnAllWorkspaces": true
+      },
+      {
+        "label": "unlock-overlay",
+        "title": "Memo unlock control",
+        "url": "unlock.html",
+        "width": 52,
+        "height": 72,
+        "decorations": false,
+        "transparent": true,
+        "backgroundColor": "#00000000",
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "visible": false,
+        "focus": false
       }
     ],
     "security": {

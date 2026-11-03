@@ -97,6 +97,23 @@ fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
 }
 #[cfg(not(windows))] fn set_native_regions(_scroll: Option<()>, _unlock: Option<()>) {}
 
+#[cfg(windows)]
+fn sync_unlock_overlay(app: &AppHandle, unlock: Option<ScreenRect>, enabled: bool) {
+    let Some(overlay) = app.get_webview_window("unlock-overlay") else { return; };
+    if !enabled { let _ = overlay.hide(); return; }
+    let Some(rect) = unlock else { return; };
+    // The overlay only covers the visible triple-chevron control plus a small
+    // forgiving margin. It is transparent, so it changes no visual styling.
+    let left = rect.left.saturating_sub(14);
+    let top = rect.top.saturating_sub(14);
+    let width = (rect.right - rect.left + 29).max(44) as u32;
+    let height = (rect.bottom - rect.top + 29).max(64) as u32;
+    let _ = overlay.set_position(PhysicalPosition::new(left, top));
+    let _ = overlay.set_size(PhysicalSize::new(width, height));
+    let _ = overlay.show();
+}
+#[cfg(not(windows))] fn sync_unlock_overlay(_app: &AppHandle, _unlock: Option<()>, _enabled: bool) {}
+
 fn default_categories() -> Value {
     Value::Array(DEFAULT_CATEGORIES.iter().map(|(id, label, color)| json!({"id": id, "label": label, "color": color})).collect())
 }
@@ -343,19 +360,22 @@ fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, window: WebviewWin
 
 fn apply_click_through(window: &WebviewWindow, runtime: &WindowRuntime) -> Result<(), String> { window.set_ignore_cursor_events(runtime.click_through && !runtime.hotspot_active).map_err(|e| e.to_string()) }
 #[tauri::command]
-fn toggle_click_through(_app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
+fn toggle_click_through(app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); set_native_lock(enabled); #[cfg(windows)] sync_unlock_overlay(&app, None, false); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
 #[tauri::command]
 fn unlock_click_through(app: AppHandle, memo: State<MemoState>) -> Result<bool, String> {
     let main = app.get_webview_window("main").ok_or("Memo 主窗口不存在")?;
     let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?;
     runtime.click_through = false; runtime.hotspot_active = false; apply_click_through(&main, &runtime)?;
-    drop(runtime); set_native_lock(false); let _ = main.emit("click-through-changed", false); Ok(false)
+    drop(runtime); set_native_lock(false); #[cfg(windows)] sync_unlock_overlay(&app, None, false); let _ = main.emit("click-through-changed", false); let _ = main.set_focus(); Ok(false)
 }
 #[tauri::command]
-fn set_locked_interaction_regions(regions: Value) -> bool {
+fn set_locked_interaction_regions(app: AppHandle, memo: State<MemoState>, regions: Value) -> bool {
     #[cfg(windows)] {
         let rect = |key: &str| regions.get(key).and_then(Value::as_object).and_then(|value| Some(ScreenRect { left: value.get("left")?.as_i64()? as i32, top: value.get("top")?.as_i64()? as i32, right: value.get("right")?.as_i64()? as i32, bottom: value.get("bottom")?.as_i64()? as i32 }));
-        set_native_regions(rect("scroll"), rect("unlock"));
+        let unlock = rect("unlock");
+        set_native_regions(rect("scroll"), unlock);
+        let enabled = memo.window.lock().map(|runtime| runtime.click_through).unwrap_or(false);
+        sync_unlock_overlay(&app, unlock, enabled);
     }
     true
 }
