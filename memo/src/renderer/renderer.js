@@ -843,7 +843,17 @@ async function boot() {
       const rect = element.getBoundingClientRect();
       return { left: Math.round(bounds.x + rect.left * scaleX), top: Math.round(bounds.y + rect.top * scaleY), right: Math.round(bounds.x + rect.right * scaleX), bottom: Math.round(bounds.y + rect.bottom * scaleY) };
     };
-    window.steward.setLockedInteractionRegions({ scroll: toScreenRect($('#event-list')), unlock: toScreenRect($('#dock-toggle')) });
+    const unlockRect = $('#dock-toggle').getBoundingClientRect();
+    window.steward.setLockedInteractionRegions({
+      scroll: toScreenRect($('#event-list')),
+      unlock: toScreenRect($('#dock-toggle')),
+      // Ratios are DPI-independent. Tauri uses them with the actual native
+      // window rectangle to position its small unlock overlay accurately.
+      unlockLocal: {
+        left: unlockRect.left / Math.max(1, window.innerWidth), top: unlockRect.top / Math.max(1, window.innerHeight),
+        right: unlockRect.right / Math.max(1, window.innerWidth), bottom: unlockRect.bottom / Math.max(1, window.innerHeight)
+      }
+    });
   };
   window.addEventListener('resize', updateNativeLockRegions);
   $('.floating-actions').addEventListener('mouseleave', () => {

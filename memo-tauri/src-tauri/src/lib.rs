@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
-#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM}, UI::WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEWHEEL}};
+#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM, RECT}, UI::WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, GetWindowRect, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEWHEEL}};
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
     ("task", "事情", "#9c8cff"), ("learning", "学习", "#65b9ff"),
@@ -98,16 +98,24 @@ fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
 #[cfg(not(windows))] fn set_native_regions(_scroll: Option<()>, _unlock: Option<()>) {}
 
 #[cfg(windows)]
-fn sync_unlock_overlay(app: &AppHandle, unlock: Option<ScreenRect>, enabled: bool) {
+#[derive(Clone, Copy)] struct RelativeRect { left: f64, top: f64, right: f64, bottom: f64 }
+#[cfg(windows)]
+fn sync_unlock_overlay(app: &AppHandle, unlock: Option<RelativeRect>, enabled: bool) {
     let Some(overlay) = app.get_webview_window("unlock-overlay") else { return; };
     if !enabled { let _ = overlay.hide(); return; }
     let Some(rect) = unlock else { return; };
+    let Some(main) = app.get_webview_window("main") else { return; };
+    let Ok(hwnd) = main.hwnd() else { return; };
+    let mut native_bounds = RECT::default();
+    if unsafe { GetWindowRect(hwnd, &mut native_bounds) }.is_err() { return; }
+    let native_width = (native_bounds.right - native_bounds.left).max(1) as f64;
+    let native_height = (native_bounds.bottom - native_bounds.top).max(1) as f64;
     // The overlay only covers the visible triple-chevron control plus a small
     // forgiving margin. It is transparent, so it changes no visual styling.
-    let left = rect.left.saturating_sub(14);
-    let top = rect.top.saturating_sub(14);
-    let width = (rect.right - rect.left + 29).max(44) as u32;
-    let height = (rect.bottom - rect.top + 29).max(64) as u32;
+    let left = native_bounds.left + (native_width * rect.left).round() as i32 - 14;
+    let top = native_bounds.top + (native_height * rect.top).round() as i32 - 14;
+    let width = (native_width * (rect.right - rect.left)).round().max(44.0) as u32 + 28;
+    let height = (native_height * (rect.bottom - rect.top)).round().max(64.0) as u32 + 28;
     let _ = overlay.set_position(PhysicalPosition::new(left, top));
     let _ = overlay.set_size(PhysicalSize::new(width, height));
     let _ = overlay.show();
@@ -374,8 +382,12 @@ fn set_locked_interaction_regions(app: AppHandle, memo: State<MemoState>, region
         let rect = |key: &str| regions.get(key).and_then(Value::as_object).and_then(|value| Some(ScreenRect { left: value.get("left")?.as_i64()? as i32, top: value.get("top")?.as_i64()? as i32, right: value.get("right")?.as_i64()? as i32, bottom: value.get("bottom")?.as_i64()? as i32 }));
         let unlock = rect("unlock");
         set_native_regions(rect("scroll"), unlock);
+        let relative = regions.get("unlockLocal").and_then(Value::as_object).and_then(|value| Some(RelativeRect {
+            left: value.get("left")?.as_f64()?, top: value.get("top")?.as_f64()?,
+            right: value.get("right")?.as_f64()?, bottom: value.get("bottom")?.as_f64()?,
+        }));
         let enabled = memo.window.lock().map(|runtime| runtime.click_through).unwrap_or(false);
-        sync_unlock_overlay(&app, unlock, enabled);
+        sync_unlock_overlay(&app, relative, enabled);
     }
     true
 }
