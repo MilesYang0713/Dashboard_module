@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
-#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM}, UI::WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEMOVE, WM_MOUSEWHEEL}};
+#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM, RECT}, UI::WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, GetWindowRect, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEMOVE, WM_MOUSEWHEEL}};
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
     ("task", "事情", "#9c8cff"), ("learning", "学习", "#65b9ff"),
@@ -101,6 +101,27 @@ fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
     }
 }
 #[cfg(not(windows))] fn set_native_regions(_scroll: Option<()>, _unlock: Option<()>) {}
+
+#[cfg(windows)]
+fn native_unlock_region(app: &AppHandle, regions: &Value) -> Option<ScreenRect> {
+    let ratio = regions.get("unlockLocal")?.as_object()?;
+    let left_ratio = ratio.get("left")?.as_f64()?;
+    let top_ratio = ratio.get("top")?.as_f64()?;
+    let right_ratio = ratio.get("right")?.as_f64()?;
+    let bottom_ratio = ratio.get("bottom")?.as_f64()?;
+    let main = app.get_webview_window("main")?;
+    let hwnd = main.hwnd().ok()?;
+    let mut bounds = RECT::default();
+    if unsafe { GetWindowRect(hwnd, &mut bounds) }.is_err() { return None; }
+    let width = (bounds.right - bounds.left).max(1) as f64;
+    let height = (bounds.bottom - bounds.top).max(1) as f64;
+    Some(ScreenRect {
+        left: bounds.left + (width * left_ratio).round() as i32,
+        top: bounds.top + (height * top_ratio).round() as i32,
+        right: bounds.left + (width * right_ratio).round() as i32,
+        bottom: bounds.top + (height * bottom_ratio).round() as i32,
+    })
+}
 
 fn default_categories() -> Value {
     Value::Array(DEFAULT_CATEGORIES.iter().map(|(id, label, color)| json!({"id": id, "label": label, "color": color})).collect())
@@ -357,10 +378,10 @@ fn unlock_click_through(app: AppHandle, memo: State<MemoState>) -> Result<bool, 
     drop(runtime); set_native_lock(false); let _ = main.emit("click-through-changed", false); let _ = main.emit("unlock-dock-requested", Value::Null); let _ = main.set_focus(); Ok(false)
 }
 #[tauri::command]
-fn set_locked_interaction_regions(regions: Value) -> bool {
+fn set_locked_interaction_regions(app: AppHandle, regions: Value) -> bool {
     #[cfg(windows)] {
         let rect = |key: &str| regions.get(key).and_then(Value::as_object).and_then(|value| Some(ScreenRect { left: value.get("left")?.as_i64()? as i32, top: value.get("top")?.as_i64()? as i32, right: value.get("right")?.as_i64()? as i32, bottom: value.get("bottom")?.as_i64()? as i32 }));
-        set_native_regions(rect("scroll"), rect("unlock"));
+        set_native_regions(rect("scroll"), native_unlock_region(&app, &regions).or_else(|| rect("unlock")));
     }
     true
 }

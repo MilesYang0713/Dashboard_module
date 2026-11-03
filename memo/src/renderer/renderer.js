@@ -848,9 +848,16 @@ async function boot() {
       const rect = element.getBoundingClientRect();
       return { left: Math.round(bounds.x + rect.left * scaleX), top: Math.round(bounds.y + rect.top * scaleY), right: Math.round(bounds.x + rect.right * scaleX), bottom: Math.round(bounds.y + rect.bottom * scaleY) };
     };
+    const unlockRect = $('#dock-toggle').getBoundingClientRect();
     window.steward.setLockedInteractionRegions({
       scroll: toScreenRect($('#event-list')),
-      unlock: toScreenRect($('#dock-toggle'))
+      unlock: toScreenRect($('#dock-toggle')),
+      // Used by the native input hook. Ratios remain correct on every Windows
+      // DPI scale, unlike a CSS-pixel screen coordinate.
+      unlockLocal: {
+        left: unlockRect.left / Math.max(1, window.innerWidth), top: unlockRect.top / Math.max(1, window.innerHeight),
+        right: unlockRect.right / Math.max(1, window.innerWidth), bottom: unlockRect.bottom / Math.max(1, window.innerHeight)
+      }
     });
   };
   window.addEventListener('resize', updateNativeLockRegions);
