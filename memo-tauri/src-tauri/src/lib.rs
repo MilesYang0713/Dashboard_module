@@ -374,7 +374,7 @@ fn unlock_click_through(app: AppHandle, memo: State<MemoState>) -> Result<bool, 
     let main = app.get_webview_window("main").ok_or("Memo 主窗口不存在")?;
     let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?;
     runtime.click_through = false; runtime.hotspot_active = false; apply_click_through(&main, &runtime)?;
-    drop(runtime); set_native_lock(false); #[cfg(windows)] sync_unlock_overlay(&app, None, false); let _ = main.emit("click-through-changed", false); let _ = main.set_focus(); Ok(false)
+    drop(runtime); set_native_lock(false); #[cfg(windows)] sync_unlock_overlay(&app, None, false); let _ = main.emit("click-through-changed", false); let _ = main.emit("unlock-dock-requested", Value::Null); let _ = main.set_focus(); Ok(false)
 }
 #[tauri::command]
 fn set_locked_interaction_regions(app: AppHandle, memo: State<MemoState>, regions: Value) -> bool {

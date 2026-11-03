@@ -879,6 +879,13 @@ async function boot() {
     if (clickThroughEnabled) $('#event-list').scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
   });
   window.steward.onNativeUnlockRequested?.(() => window.steward.unlockClickThrough?.());
+  window.steward.onUnlockDockRequested?.(() => {
+    // Locked-mode unlock uses the same outcome as clicking the original
+    // dock chevrons: restore interaction and open the quick-action drawer.
+    $('#action-dock').classList.add('expanded');
+    $('#dock-toggle').setAttribute('aria-expanded', 'true');
+    $('#dock-toggle').title = '收起快捷功能';
+  });
   window.steward.onOrbModeChanged((enabled) => document.body.classList.toggle('orb-mode', enabled));
   window.steward.onStateChanged((nextState) => {
     state = nextState;
