@@ -79,7 +79,22 @@ fn setup_native_input(app: AppHandle) {
 fn set_native_lock(locked: bool) { if let Some(adapter) = NATIVE_INPUT.get() { if let Ok(mut state) = adapter.state.lock() { state.locked = locked; } } }
 #[cfg(not(windows))] fn set_native_lock(_locked: bool) {}
 #[cfg(windows)]
-fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) { if let Some(adapter) = NATIVE_INPUT.get() { if let Ok(mut state) = adapter.state.lock() { state.scroll = scroll; state.unlock = unlock; } } }
+fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
+    if let Some(adapter) = NATIVE_INPUT.get() {
+        if let Ok(mut state) = adapter.state.lock() {
+            state.scroll = scroll;
+            // WebView2 reports DOM rectangles in logical pixels while the
+            // low-level hook receives physical screen pixels. Keep the native
+            // escape hatch deliberately generous so the right-bottom chevrons
+            // always unlock on any DPI scale, without making the whole Memo
+            // interactive.
+            state.unlock = unlock.map(|rect| ScreenRect {
+                left: rect.left.saturating_sub(72), top: rect.top.saturating_sub(48),
+                right: rect.right.saturating_add(32), bottom: rect.bottom.saturating_add(48),
+            });
+        }
+    }
+}
 #[cfg(not(windows))] fn set_native_regions(_scroll: Option<()>, _unlock: Option<()>) {}
 
 fn default_categories() -> Value {
