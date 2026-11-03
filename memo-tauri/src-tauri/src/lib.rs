@@ -424,8 +424,11 @@ pub fn run() {
                     if shortcut == &toggle_click { let state = shortcut_app.state::<MemoState>(); if let Ok(mut runtime) = state.window.lock() { runtime.click_through = !runtime.click_through; let _ = apply_click_through(&window, &runtime); let enabled = runtime.click_through; drop(runtime); set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); }; }
                 }
             }).build())?;
-            app.global_shortcut().register(toggle_window)?;
-            app.global_shortcut().register(toggle_click)?;
+            // The Electron edition may be open during a migration test and own
+            // the same shortcuts. A shortcut collision must not prevent Memo
+            // itself from starting; the window controls remain available.
+            let _ = app.global_shortcut().register(toggle_window);
+            let _ = app.global_shortcut().register(toggle_click);
             if let Some(window) = app.get_webview_window("main") {
                 let state = app.state::<MemoState>();
                 if let Ok(saved) = load_state(&state) {
