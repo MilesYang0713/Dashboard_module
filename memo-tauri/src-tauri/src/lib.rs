@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
-#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM, RECT}, UI::WindowsAndMessaging::{CallNextHookEx, CallWindowProcW, DefWindowProcW, DispatchMessageW, GetMessageW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, HTCLIENT, HTTRANSPARENT, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_NCHITTEST, WM_MOUSEWHEEL, WNDPROC, GWLP_WNDPROC}};
+#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, POINT, WPARAM, RECT}, UI::WindowsAndMessaging::{CallNextHookEx, CallWindowProcW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, HTCLIENT, HTTRANSPARENT, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_NCHITTEST, WM_MOUSEWHEEL, WNDPROC, GWLP_WNDPROC}};
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
     ("task", "事情", "#9c8cff"), ("learning", "学习", "#65b9ff"),
@@ -282,6 +282,13 @@ fn set_bounds(window: &WebviewWindow, value: Bounds) -> Result<(), String> {
     }
 }
 
+#[cfg(windows)]
+fn native_cursor_position() -> Result<(i32, i32), String> {
+    let mut point = POINT::default();
+    unsafe { GetCursorPos(&mut point).map_err(|e| e.to_string())?; }
+    Ok((point.x, point.y))
+}
+
 #[tauri::command]
 fn bootstrap(memo: State<MemoState>) -> Result<Value, String> {
     let state = load_state(&memo)?;
@@ -425,13 +432,26 @@ fn resize_window(memo: State<MemoState>, window: WebviewWindow, payload: Value) 
 }
 
 #[tauri::command]
-fn minimize_to_orb(memo: State<MemoState>, window: WebviewWindow) -> Result<(), String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; if runtime.orb_mode { return Ok(()); } runtime.full_bounds = Some(bounds(&window)?); runtime.orb_mode = true; window.set_resizable(false).map_err(|e| e.to_string())?; window.set_size(PhysicalSize::new(58, 58)).map_err(|e| e.to_string())?; let _ = window.emit("orb-mode-changed", true); Ok(()) }
+fn minimize_to_orb(memo: State<MemoState>, window: WebviewWindow) -> Result<(), String> {
+    let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?;
+    if runtime.orb_mode { return Ok(()); }
+    runtime.full_bounds = Some(bounds(&window)?);
+    runtime.orb_mode = true;
+    window.set_resizable(false).map_err(|e| e.to_string())?;
+    // The orb CSS occupies 58 logical pixels (42px button + 8px inset on
+    // each side). Convert that to native physical pixels so it is never
+    // clipped into a square on a scaled Windows display.
+    let side = (58.0 * window.scale_factor().map_err(|e| e.to_string())?).round() as u32;
+    window.set_size(PhysicalSize::new(side, side)).map_err(|e| e.to_string())?;
+    let _ = window.emit("orb-mode-changed", true);
+    Ok(())
+}
 #[tauri::command]
 fn restore_from_orb(memo: State<MemoState>, window: WebviewWindow) -> Result<(), String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; if !runtime.orb_mode { return Ok(()); } if let Some(b) = runtime.full_bounds { set_bounds(&window, b)?; } runtime.orb_mode = false; window.set_resizable(false).map_err(|e| e.to_string())?; let _ = window.emit("orb-mode-changed", false); Ok(()) }
 #[tauri::command]
-fn begin_orb_drag(memo: State<MemoState>, window: WebviewWindow, cursor: Value) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; if !runtime.orb_mode { return Ok(false); } let b = bounds(&window)?; runtime.orb_drag_offset = Some((cursor["x"].as_i64().unwrap_or(0) as i32 - b.x, cursor["y"].as_i64().unwrap_or(0) as i32 - b.y)); Ok(true) }
+fn begin_orb_drag(memo: State<MemoState>, window: WebviewWindow, _cursor: Value) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; if !runtime.orb_mode { return Ok(false); } let b = bounds(&window)?; #[cfg(windows)] let (x, y) = native_cursor_position()?; #[cfg(not(windows))] let (x, y) = (_cursor["x"].as_i64().unwrap_or(0) as i32, _cursor["y"].as_i64().unwrap_or(0) as i32); runtime.orb_drag_offset = Some((x - b.x, y - b.y)); Ok(true) }
 #[tauri::command]
-fn move_orb(memo: State<MemoState>, window: WebviewWindow, cursor: Value) -> Result<Value, String> { let runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; let Some((dx, dy)) = runtime.orb_drag_offset else { return Ok(Value::Null); }; let b = bounds(&window)?; let x = cursor["x"].as_i64().unwrap_or(0) as i32 - dx; let y = cursor["y"].as_i64().unwrap_or(0) as i32 - dy; window.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?; Ok(json!({"x": x, "y": y, "width": b.width, "height": b.height})) }
+fn move_orb(memo: State<MemoState>, window: WebviewWindow, _cursor: Value) -> Result<Value, String> { let runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; let Some((dx, dy)) = runtime.orb_drag_offset else { return Ok(Value::Null); }; let b = bounds(&window)?; #[cfg(windows)] let (cursor_x, cursor_y) = native_cursor_position()?; #[cfg(not(windows))] let (cursor_x, cursor_y) = (_cursor["x"].as_i64().unwrap_or(0) as i32, _cursor["y"].as_i64().unwrap_or(0) as i32); let x = cursor_x - dx; let y = cursor_y - dy; window.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?; Ok(json!({"x": x, "y": y, "width": b.width, "height": b.height})) }
 #[tauri::command] fn end_orb_drag(memo: State<MemoState>) -> Result<(), String> { memo.window.lock().map_err(|_| "窗口锁不可用")?.orb_drag_offset = None; Ok(()) }
 #[tauri::command] fn hide_window(window: WebviewWindow) -> Result<(), String> { window.hide().map_err(|e| e.to_string()) }
 #[tauri::command] fn quit_app(app: AppHandle) { app.exit(0); }
