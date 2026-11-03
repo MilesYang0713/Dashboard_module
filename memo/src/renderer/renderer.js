@@ -26,7 +26,7 @@ const translations = {
     trashEmpty: 'Bin is empty.', deletedAt: 'Deleted', restore: 'Restore', restoredEvent: 'Event restored', purge: 'Delete forever', purged: 'Deleted forever', exportedTo: 'Exported to',
     openCount: 'open', noCategoryEvents: 'No events in this category.', noEvents: 'No events yet.', startAdding: 'Use the + button to begin.', windowPinned: 'Window position and size are locked; click to unlock', windowFree: 'Window can move and resize; click to lock',
     interactionLocked: 'Interaction is locked; click this lock to restore', interactionOpen: 'Lock interaction and click through', dockUnlock: 'Expand and unlock interaction', dockCollapse: 'Collapse quick actions', dockExpand: 'Expand quick actions',
-    categoryName: 'category name', categoryColor: 'category colour', categoryDelete: 'Delete', keepOneCategory: 'Keep at least one category', invalidSchedule: 'Deadline cannot be before start time.', titleRequired: 'Event text is required.', eventUpdated: 'Event updated.', categoryRequired: 'Enter a category name first.', categoryAdded: 'Category added:', storageUnchanged: 'Data location unchanged.', storageMoved: 'Data moved to the new location.', launchEnabled: 'Launch at login enabled.', launchDisabled: 'Launch at login disabled.', completionDetail: 'completed'
+    categoryName: 'category name', categoryColor: 'category colour', categoryDelete: 'Delete', keepOneCategory: 'Keep at least one category', invalidSchedule: 'Deadline cannot be before start time.', titleRequired: 'Event text is required.', eventUpdated: 'Event updated.', categoryRequired: 'Enter a category name first.', categoryAdded: 'Category added:', storageUnchanged: 'Data location unchanged.', storageMoved: 'Data moved to the new location.', launchEnabled: 'Launch at login enabled.', launchDisabled: 'Launch at login disabled.', completionDetail: 'completed', account: 'Account', accountEyebrow: 'ACCOUNT', localMode: 'Local mode', onlineOff: 'Online services are off', accountCopy: 'Your Memo data stays on this computer. Sign-in, licensing, subscriptions and cloud features will only be available after you explicitly enable online services.', comingSoon: 'Coming next', accountRoadmap: 'Account sign-in · License status · Subscription management · Major update alerts'
   },
   'zh-CN': {}
 };
@@ -69,6 +69,15 @@ function applyLanguage() {
   $('#add-category').textContent = t('addCategory', '添加');
   const staticText = [['#settings-sheet h2', 'settings', '显示设置'], ['#setting-adaptive-contrast', 'adaptive', '自动对比色'], ['#setting-launch-at-login', 'launch', '开机自动运行'], ['#setting-window-lock', 'lockWindow', '固定窗口位置与尺寸'], ['#setting-click-through', 'clickThrough', '锁定交互并点击穿透'], ['#setting-topmost', 'topmost', '始终置顶'], ['#quit-app', 'quit', '退出备忘录']];
   for (const [selector, key, fallback] of staticText) { const element = $(selector); if (element) element.childNodes[0] ? element.childNodes[0].textContent = t(key, fallback) : element.textContent = t(key, fallback); }
+  $('#open-account').title = t('account', '账户');
+  $('#open-account').setAttribute('aria-label', t('account', '账户'));
+  $('#account-eyebrow').textContent = t('accountEyebrow', '账户');
+  $('#account-title').textContent = t('account', '账户');
+  $('#account-mode').textContent = t('localMode', '本地模式');
+  $('#account-status').textContent = t('onlineOff', '在线服务已关闭');
+  $('#account-copy').textContent = t('accountCopy', '你的备忘录数据仅保存在此电脑。登录、授权、订阅和云端功能将在你主动开启在线服务后提供。');
+  $('#account-roadmap-title').textContent = t('comingSoon', '即将支持');
+  $('#account-roadmap-copy').textContent = t('accountRoadmap', '账户登录 · 授权状态 · 订阅管理 · 重大更新提醒');
 }
 
 const $ = (selector) => document.querySelector(selector);
@@ -728,6 +737,7 @@ async function boot() {
   });
   $('#open-capture').addEventListener('click', () => openSheet('capture-sheet'));
   $('#open-settings').addEventListener('click', () => openSheet('settings-sheet'));
+  $('#open-account').addEventListener('click', () => openSheet('account-sheet'));
   $('#dock-toggle').addEventListener('click', async () => {
     if (clickThroughEnabled) {
       actionHotspotActive = true;

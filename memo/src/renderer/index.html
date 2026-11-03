@@ -45,6 +45,7 @@
           <button id="toggle-window-pin" class="fab secondary" title="固定窗口位置与尺寸">📌</button>
           <button id="toggle-click-through" class="fab secondary" title="锁定交互并点击穿透">🔓</button>
           <button id="open-settings" class="fab secondary" title="设置">⚙</button>
+          <button id="open-account" class="fab secondary account-fab" title="账户" aria-label="账户">◉</button>
           <button id="open-capture" class="fab primary-fab" title="添加事件">＋</button>
         </div>
       </div>
@@ -64,6 +65,17 @@
           <label>截止时间 <input id="due-time" type="time" title="可不填" /></label>
         </div>
         <div class="capture-footer"><span id="department-status">已就绪</span><button class="primary" id="capture-button">添加</button></div>
+      </section>
+
+      <section id="account-sheet" class="sheet no-drag account-sheet" aria-hidden="true">
+        <div class="sheet-heading"><div><p id="account-eyebrow" class="eyebrow">ACCOUNT</p><h2 id="account-title">账户</h2></div><button class="close-sheet" data-close="account-sheet">×</button></div>
+        <div class="account-card">
+          <div class="account-avatar" aria-hidden="true">M</div>
+          <div><strong id="account-mode">本地模式</strong><p id="account-status">在线服务已关闭</p></div>
+        </div>
+        <p id="account-copy" class="account-copy">你的备忘录数据仅保存在此电脑。登录、授权、订阅和云端功能将在你主动开启在线服务后提供。</p>
+        <div class="account-roadmap"><span id="account-roadmap-title">即将支持</span><small id="account-roadmap-copy">账户登录 · 授权状态 · 订阅管理 · 重大更新提醒</small></div>
+        <button id="quit-app" class="quit-button">退出备忘录</button>
       </section>
 
       <section id="settings-sheet" class="sheet no-drag" aria-hidden="true">
@@ -86,7 +98,6 @@
         <button id="setting-window-lock" class="setting-row toggle">固定窗口位置与尺寸 <span></span></button>
         <button id="setting-click-through" class="setting-row toggle">锁定交互并点击穿透 <span></span></button>
         <button id="setting-topmost" class="setting-row toggle">始终置顶 <span></span></button>
-        <button id="quit-app" class="quit-button">退出备忘录</button>
         <section class="analytics" aria-label="数据概览">
           <p class="eyebrow">INSIGHTS</p>
           <h3>Work overview</h3>
