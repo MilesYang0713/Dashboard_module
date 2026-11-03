@@ -843,16 +843,9 @@ async function boot() {
       const rect = element.getBoundingClientRect();
       return { left: Math.round(bounds.x + rect.left * scaleX), top: Math.round(bounds.y + rect.top * scaleY), right: Math.round(bounds.x + rect.right * scaleX), bottom: Math.round(bounds.y + rect.bottom * scaleY) };
     };
-    const unlockRect = $('#dock-toggle').getBoundingClientRect();
     window.steward.setLockedInteractionRegions({
       scroll: toScreenRect($('#event-list')),
-      unlock: toScreenRect($('#dock-toggle')),
-      // Ratios are DPI-independent. Tauri uses them with the actual native
-      // window rectangle to position its small unlock overlay accurately.
-      unlockLocal: {
-        left: unlockRect.left / Math.max(1, window.innerWidth), top: unlockRect.top / Math.max(1, window.innerHeight),
-        right: unlockRect.right / Math.max(1, window.innerWidth), bottom: unlockRect.bottom / Math.max(1, window.innerHeight)
-      }
+      unlock: toScreenRect($('#dock-toggle'))
     });
   };
   window.addEventListener('resize', updateNativeLockRegions);
@@ -879,6 +872,11 @@ async function boot() {
     if (clickThroughEnabled) $('#event-list').scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
   });
   window.steward.onNativeUnlockRequested?.(() => window.steward.unlockClickThrough?.());
+  window.steward.onNativeUnlockHotspot?.(({ active }) => {
+    // The original chevrons are the only interactive area in locked mode.
+    actionHotspotActive = active;
+    window.steward.setClickThroughHotspot(active);
+  });
   window.steward.onUnlockDockRequested?.(() => {
     // Locked-mode unlock uses the same outcome as clicking the original
     // dock chevrons: restore interaction and open the quick-action drawer.

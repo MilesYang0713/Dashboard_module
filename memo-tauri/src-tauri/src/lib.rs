@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
-#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM, RECT}, UI::WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, GetWindowRect, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEWHEEL}};
+#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, WPARAM}, UI::WindowsAndMessaging::{CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MOUSEMOVE, WM_MOUSEWHEEL}};
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
     ("task", "事情", "#9c8cff"), ("learning", "学习", "#65b9ff"),
@@ -37,9 +37,9 @@ struct Bounds { x: i32, y: i32, width: u32, height: u32 }
 #[cfg(windows)]
 impl ScreenRect { fn contains(self, x: i32, y: i32) -> bool { x >= self.left && x <= self.right && y >= self.top && y <= self.bottom } }
 #[cfg(windows)]
-#[derive(Default)] struct NativeInputState { locked: bool, scroll: Option<ScreenRect>, unlock: Option<ScreenRect> }
+#[derive(Default)] struct NativeInputState { locked: bool, scroll: Option<ScreenRect>, unlock: Option<ScreenRect>, unlock_hovered: bool }
 #[cfg(windows)]
-enum NativeInput { Wheel(i16), Unlock }
+enum NativeInput { Wheel(i16), Unlock, UnlockHotspot(bool) }
 #[cfg(windows)]
 struct NativeInputAdapter { state: Mutex<NativeInputState>, sender: mpsc::Sender<NativeInput> }
 #[cfg(windows)]
@@ -50,13 +50,18 @@ unsafe extern "system" fn native_mouse_hook(code: i32, message: WPARAM, data: LP
     if code >= 0 {
         if let Some(adapter) = NATIVE_INPUT.get() {
             let mouse = unsafe { &*(data.0 as *const MSLLHOOKSTRUCT) };
-            if let Ok(state) = adapter.state.lock() {
+            if let Ok(mut state) = adapter.state.lock() {
                 if state.locked && message.0 as u32 == WM_MOUSEWHEEL {
                     if state.scroll.is_some_and(|rect| rect.contains(mouse.pt.x, mouse.pt.y)) {
                         let delta = (mouse.mouseData >> 16) as i16; let _ = adapter.sender.send(NativeInput::Wheel(delta)); return LRESULT(1);
                     }
                 }
+                if state.locked && message.0 as u32 == WM_MOUSEMOVE {
+                    let hovered = state.unlock.is_some_and(|rect| rect.contains(mouse.pt.x, mouse.pt.y));
+                    if hovered != state.unlock_hovered { state.unlock_hovered = hovered; let _ = adapter.sender.send(NativeInput::UnlockHotspot(hovered)); }
+                }
                 if state.locked && message.0 as u32 == WM_LBUTTONDOWN && state.unlock.is_some_and(|rect| rect.contains(mouse.pt.x, mouse.pt.y)) {
+                    if state.unlock_hovered { return unsafe { CallNextHookEx(Some(HHOOK::default()), code, message, data) }; }
                     let _ = adapter.sender.send(NativeInput::Unlock); return LRESULT(1);
                 }
             }
@@ -71,12 +76,12 @@ fn setup_native_input(app: AppHandle) {
     let adapter = Arc::new(NativeInputAdapter { state: Mutex::new(NativeInputState::default()), sender });
     let _ = NATIVE_INPUT.set(adapter);
     let output = app.clone();
-    thread::spawn(move || while let Ok(event) = receiver.recv() { match event { NativeInput::Wheel(delta) => { let _ = output.emit("native-locked-wheel", json!({ "deltaY": -i32::from(delta) })); }, NativeInput::Unlock => { let _ = output.emit("native-unlock-requested", Value::Null); } } });
+    thread::spawn(move || while let Ok(event) = receiver.recv() { match event { NativeInput::Wheel(delta) => { let _ = output.emit("native-locked-wheel", json!({ "deltaY": -i32::from(delta) })); }, NativeInput::Unlock => { let _ = output.emit("native-unlock-requested", Value::Null); }, NativeInput::UnlockHotspot(active) => { if let Some(window) = output.get_webview_window("main") { let _ = window.set_ignore_cursor_events(!active); } let _ = output.emit("native-unlock-hotspot", json!({ "active": active })); } } });
     thread::spawn(|| unsafe { let _hook = SetWindowsHookExW(WH_MOUSE_LL, Some(native_mouse_hook), None, 0); let mut message = MSG::default(); while GetMessageW(&mut message, None, 0, 0).as_bool() { let _ = TranslateMessage(&message); DispatchMessageW(&message); } });
 }
 
 #[cfg(windows)]
-fn set_native_lock(locked: bool) { if let Some(adapter) = NATIVE_INPUT.get() { if let Ok(mut state) = adapter.state.lock() { state.locked = locked; } } }
+fn set_native_lock(locked: bool) { if let Some(adapter) = NATIVE_INPUT.get() { if let Ok(mut state) = adapter.state.lock() { state.locked = locked; state.unlock_hovered = false; } } }
 #[cfg(not(windows))] fn set_native_lock(_locked: bool) {}
 #[cfg(windows)]
 fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
@@ -96,31 +101,6 @@ fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
     }
 }
 #[cfg(not(windows))] fn set_native_regions(_scroll: Option<()>, _unlock: Option<()>) {}
-
-#[cfg(windows)]
-#[derive(Clone, Copy)] struct RelativeRect { left: f64, top: f64, right: f64, bottom: f64 }
-#[cfg(windows)]
-fn sync_unlock_overlay(app: &AppHandle, unlock: Option<RelativeRect>, enabled: bool) {
-    let Some(overlay) = app.get_webview_window("unlock-overlay") else { return; };
-    if !enabled { let _ = overlay.hide(); return; }
-    let Some(rect) = unlock else { return; };
-    let Some(main) = app.get_webview_window("main") else { return; };
-    let Ok(hwnd) = main.hwnd() else { return; };
-    let mut native_bounds = RECT::default();
-    if unsafe { GetWindowRect(hwnd, &mut native_bounds) }.is_err() { return; }
-    let native_width = (native_bounds.right - native_bounds.left).max(1) as f64;
-    let native_height = (native_bounds.bottom - native_bounds.top).max(1) as f64;
-    // The overlay only covers the visible triple-chevron control plus a small
-    // forgiving margin. It is transparent, so it changes no visual styling.
-    let left = native_bounds.left + (native_width * rect.left).round() as i32 - 14;
-    let top = native_bounds.top + (native_height * rect.top).round() as i32 - 14;
-    let width = (native_width * (rect.right - rect.left)).round().max(44.0) as u32 + 28;
-    let height = (native_height * (rect.bottom - rect.top)).round().max(64.0) as u32 + 28;
-    let _ = overlay.set_position(PhysicalPosition::new(left, top));
-    let _ = overlay.set_size(PhysicalSize::new(width, height));
-    let _ = overlay.show();
-}
-#[cfg(not(windows))] fn sync_unlock_overlay(_app: &AppHandle, _unlock: Option<()>, _enabled: bool) {}
 
 fn default_categories() -> Value {
     Value::Array(DEFAULT_CATEGORIES.iter().map(|(id, label, color)| json!({"id": id, "label": label, "color": color})).collect())
@@ -368,26 +348,19 @@ fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, window: WebviewWin
 
 fn apply_click_through(window: &WebviewWindow, runtime: &WindowRuntime) -> Result<(), String> { window.set_ignore_cursor_events(runtime.click_through && !runtime.hotspot_active).map_err(|e| e.to_string()) }
 #[tauri::command]
-fn toggle_click_through(app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); set_native_lock(enabled); #[cfg(windows)] sync_unlock_overlay(&app, None, false); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
+fn toggle_click_through(_app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
 #[tauri::command]
 fn unlock_click_through(app: AppHandle, memo: State<MemoState>) -> Result<bool, String> {
     let main = app.get_webview_window("main").ok_or("Memo 主窗口不存在")?;
     let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?;
     runtime.click_through = false; runtime.hotspot_active = false; apply_click_through(&main, &runtime)?;
-    drop(runtime); set_native_lock(false); #[cfg(windows)] sync_unlock_overlay(&app, None, false); let _ = main.emit("click-through-changed", false); let _ = main.emit("unlock-dock-requested", Value::Null); let _ = main.set_focus(); Ok(false)
+    drop(runtime); set_native_lock(false); let _ = main.emit("click-through-changed", false); let _ = main.emit("unlock-dock-requested", Value::Null); let _ = main.set_focus(); Ok(false)
 }
 #[tauri::command]
-fn set_locked_interaction_regions(app: AppHandle, memo: State<MemoState>, regions: Value) -> bool {
+fn set_locked_interaction_regions(regions: Value) -> bool {
     #[cfg(windows)] {
         let rect = |key: &str| regions.get(key).and_then(Value::as_object).and_then(|value| Some(ScreenRect { left: value.get("left")?.as_i64()? as i32, top: value.get("top")?.as_i64()? as i32, right: value.get("right")?.as_i64()? as i32, bottom: value.get("bottom")?.as_i64()? as i32 }));
-        let unlock = rect("unlock");
-        set_native_regions(rect("scroll"), unlock);
-        let relative = regions.get("unlockLocal").and_then(Value::as_object).and_then(|value| Some(RelativeRect {
-            left: value.get("left")?.as_f64()?, top: value.get("top")?.as_f64()?,
-            right: value.get("right")?.as_f64()?, bottom: value.get("bottom")?.as_f64()?,
-        }));
-        let enabled = memo.window.lock().map(|runtime| runtime.click_through).unwrap_or(false);
-        sync_unlock_overlay(&app, relative, enabled);
+        set_native_regions(rect("scroll"), rect("unlock"));
     }
     true
 }

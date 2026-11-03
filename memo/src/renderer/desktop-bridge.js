@@ -51,6 +51,7 @@
     onClickThroughChanged: (callback) => stateListener('click-through-changed', callback),
     onNativeLockedWheel: (callback) => stateListener('native-locked-wheel', callback),
     onNativeUnlockRequested: (callback) => stateListener('native-unlock-requested', callback),
+    onNativeUnlockHotspot: (callback) => stateListener('native-unlock-hotspot', callback),
     onUnlockDockRequested: (callback) => stateListener('unlock-dock-requested', callback),
     unlockClickThrough: () => invoke('unlock_click_through'),
     minimizeToOrb: () => invoke('minimize_to_orb'),
