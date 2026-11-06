@@ -506,8 +506,13 @@ function requestIndividualContrastSample() {
     const width = Math.max(window.innerWidth, 1);
     const height = Math.max(window.innerHeight, 1);
     const targets = contrastTargets();
+    const sampleArea = (element) => {
+      if (element.matches('.drag-region h1')) return element.closest('.drag-region').getBoundingClientRect();
+      if (element.matches('.section-heading > span, .filter-control, .filter-control select, .sort-control')) return element.closest('.section-heading').getBoundingClientRect();
+      return element.getBoundingClientRect();
+    };
     const regions = targets.map(({ element, key }) => {
-      const rect = element.getBoundingClientRect();
+      const rect = sampleArea(element);
       return { id: key, x: rect.left / width, y: rect.top / height, width: rect.width / width, height: rect.height / height };
     }).filter((region) => region.width > 0 && region.height > 0);
     if (!regions.length) return;

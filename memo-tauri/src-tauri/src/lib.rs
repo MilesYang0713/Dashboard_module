@@ -7,7 +7,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
-#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, POINT, WPARAM, RECT}, Graphics::{Dwm::DwmFlush, Gdi::{GetDC, GetPixel, ReleaseDC}}, UI::WindowsAndMessaging::{CallNextHookEx, CallWindowProcW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, SetWindowsHookExW, ShowWindow, TranslateMessage, HHOOK, HTCLIENT, HTTRANSPARENT, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WH_MOUSE_LL, WM_NCHITTEST, WM_MOUSEWHEEL, WNDPROC, GWLP_WNDPROC}};
+#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, POINT, WPARAM, RECT}, Graphics::Gdi::{GetDC, GetPixel, ReleaseDC}, UI::WindowsAndMessaging::{CallNextHookEx, CallWindowProcW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, HTCLIENT, HTTRANSPARENT, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_NCHITTEST, WM_MOUSEWHEEL, WNDPROC, GWLP_WNDPROC}};
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
     ("task", "事情", "#9c8cff"), ("learning", "学习", "#65b9ff"),
@@ -380,9 +380,10 @@ fn patch_settings(app: &AppHandle, memo: &MemoState, key: &str, value: Value) ->
 #[tauri::command] fn set_theme_color(app: AppHandle, memo: State<MemoState>, color: String) -> Result<Value, String> { let safe = if color.len() == 7 && color.starts_with('#') { color } else { "#8f82ff".into() }; patch_settings(&app, &memo, "themeColor", json!(safe)) }
 #[tauri::command] fn set_adaptive_contrast(app: AppHandle, memo: State<MemoState>, enabled: bool) -> Result<Value, String> { patch_settings(&app, &memo, "adaptiveContrast", json!(enabled)) }
 
-// The transparent webview cannot query pixels below itself. On Windows we
-// briefly hide only this window, sample the desktop below its own controls,
-// then show it again without activating it. No image is stored or sent away.
+// Sample the already composed pixels behind each control while Memo remains
+// visible. This matches the actual glass surface without hiding/re-showing the
+// window, so changing a lock state can never produce a flash. No image is
+// stored or sent away; only a median RGB sample is returned to the renderer.
 #[tauri::command]
 fn sample_backdrop_luminance(app: AppHandle, regions: Vec<ContrastRegion>) -> Result<Vec<ContrastSample>, String> {
     #[cfg(windows)] {
@@ -393,21 +394,21 @@ fn sample_backdrop_luminance(app: AppHandle, regions: Vec<ContrastRegion>) -> Re
         let height = (rect.bottom - rect.top).max(1) as f64;
         let regions = regions.into_iter().take(32).collect::<Vec<_>>();
         unsafe {
-            let _ = ShowWindow(hwnd, SW_HIDE);
-            let _ = DwmFlush();
             let desktop = GetDC(None);
-            if desktop.0.is_null() {
-                let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-                return Err("Unable to sample the desktop backdrop".into());
-            }
+            if desktop.0.is_null() { return Err("Unable to sample the desktop backdrop".into()); }
             let samples = regions.into_iter().map(|region| {
-                let x = rect.left + ((region.x + region.width / 2.0).clamp(0.0, 1.0) * width).round() as i32;
-                let y = rect.top + ((region.y + region.height / 2.0).clamp(0.0, 1.0) * height).round() as i32;
-                let color = GetPixel(desktop, x, y).0;
+                // Corners avoid glyphs/icons. Selecting the median luma makes
+                // the result stable even when one point lands on an edge.
+                let mut colors = [(0.12, 0.18), (0.88, 0.18), (0.12, 0.82), (0.88, 0.82)].into_iter().map(|(horizontal, vertical)| {
+                    let x = rect.left + ((region.x + region.width * horizontal).clamp(0.0, 1.0) * width).round() as i32;
+                    let y = rect.top + ((region.y + region.height * vertical).clamp(0.0, 1.0) * height).round() as i32;
+                    GetPixel(desktop, x, y).0
+                }).collect::<Vec<_>>();
+                colors.sort_by_key(|color| ((color & 0xff) * 54) + (((color >> 8) & 0xff) * 183) + (((color >> 16) & 0xff) * 19));
+                let color = colors[colors.len() / 2];
                 ContrastSample { id: region.id, r: (color & 0xff) as u8, g: ((color >> 8) & 0xff) as u8, b: ((color >> 16) & 0xff) as u8 }
             }).collect::<Vec<_>>();
             let _ = ReleaseDC(None, desktop);
-            let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             Ok(samples)
         }
     }
