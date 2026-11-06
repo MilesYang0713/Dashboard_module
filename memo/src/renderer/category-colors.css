@@ -21,7 +21,7 @@
   box-shadow: inset 0 1px rgba(255, 255, 255, .1);
 }
 
-body.contrast-dark-ink .event .category-chip {
+.event.contrast-dark-ink .category-chip {
   color: color-mix(in srgb, var(--event-category-color) 76%, #142039) !important;
   border-color: color-mix(in srgb, var(--event-category-color) 62%, #142039);
   background: color-mix(in srgb, var(--event-category-color) 26%, rgba(255, 255, 255, .5)) !important;

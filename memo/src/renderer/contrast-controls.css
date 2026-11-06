@@ -1,18 +1,20 @@
-/* Keep the primary queue controls readable when the adaptive light-background
-   mode is active, matching the event-card contrast treatment. */
-body.contrast-dark-ink :is(.drag-region h1, .filter-control, .section-heading > span) {
+/* Each transparent surface receives its own contrast class from the renderer.
+   Do not use one window-wide ink colour: the title, controls and cards sit on
+   different glass layers, while sheets and the action dock stay opaque/dark. */
+body.adaptive-contrast :is(.drag-region h1, .section-heading > span).contrast-dark-ink,
+body.adaptive-contrast .filter-control.contrast-dark-ink {
   color: #142039;
   text-shadow: none;
 }
 
-body.contrast-dark-ink :is(.filter-control select, .sort-control) {
+body.adaptive-contrast :is(.filter-control select, .sort-control).contrast-dark-ink {
   border-color: rgba(20, 32, 57, .42);
   color: #142039;
   background: rgba(255, 255, 255, .5);
   color-scheme: light;
 }
 
-body.contrast-dark-ink :is(.filter-control select, .sort-control) option {
+body.adaptive-contrast :is(.filter-control select, .sort-control).contrast-dark-ink option {
   color: #142039;
   background: #f6f8ff;
 }

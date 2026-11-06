@@ -452,6 +452,25 @@ function renderCategoryControls() {
   renderCategoryManager();
 }
 
+function applyIndividualContrast() {
+  const adaptive = state.settings.adaptiveContrast !== false;
+  const backgroundOpacity = Number(state.settings.backgroundOpacity);
+  const contentOpacity = Number(state.settings.contentOpacity);
+  // The panel, controls and cards are separate translucent layers.  Their
+  // effective exposure is deliberately evaluated separately instead of
+  // applying a single colour to the whole Memo window.
+  const exposure = (1 - backgroundOpacity) * contentOpacity;
+  const setInk = (selector, threshold) => {
+    document.querySelectorAll(selector).forEach((element) => {
+      element.classList.toggle('contrast-dark-ink', adaptive && exposure >= threshold);
+    });
+  };
+
+  setInk('.drag-region h1, .section-heading > span', .34);
+  setInk('.filter-control, .filter-control select, .sort-control', .39);
+  setInk('.event, .empty, .toast', .43);
+}
+
 function render() {
   applyLanguage();
   const events = state.events || [];
@@ -466,7 +485,6 @@ function render() {
   document.documentElement.style.setProperty('--accent-color', state.settings.themeColor);
   $('.panel').classList.toggle('background-clear', state.settings.backgroundOpacity === 0);
   document.body.classList.toggle('adaptive-contrast', adaptiveContrast);
-  document.body.classList.toggle('contrast-dark-ink', adaptiveContrast && Number(state.settings.backgroundOpacity) <= 0.54);
   document.body.classList.toggle('window-unlocked', !state.settings.windowLocked);
   document.body.classList.toggle('interaction-scroll-locked', clickThroughEnabled);
   $('#setting-window-lock').classList.toggle('active', state.settings.windowLocked);
@@ -489,6 +507,7 @@ function render() {
   const visibleEvents = sortEvents(events.filter((item) => shouldShowInQueue(item) && (activeCategory === 'all' || item.category === activeCategory)));
   if (!visibleEvents.length) {
     list.innerHTML = `<div class="empty">${events.length ? t('noCategoryEvents', '这个类别暂时没有事件。') : `${t('noEvents', '暂时没有事件。')}<br/>${t('startAdding', '点击右下角 ＋ 开始吧。')}`}</div>`;
+    applyIndividualContrast();
     return;
   }
   for (const item of visibleEvents) {
@@ -508,6 +527,7 @@ function render() {
     card.querySelector('.delete').addEventListener('click', async () => { state = await window.steward.deleteEvent(item.id); render(); });
     list.append(card);
   }
+  applyIndividualContrast();
 }
 
 const sevenSegmentMap = {
