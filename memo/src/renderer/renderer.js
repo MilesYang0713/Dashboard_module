@@ -7,6 +7,8 @@ let actionHotspotActive = false;
 let scrollHotspotActive = false;
 let scrollHotspotReleaseTimer = null;
 let editingEventId = null;
+let backdropSampleTimer = null;
+let backdropSamples = new Map();
 
 const locale = () => state?.settings?.language === 'en' ? 'en' : 'zh-CN';
 const translations = {
@@ -452,23 +454,72 @@ function renderCategoryControls() {
   renderCategoryManager();
 }
 
+function contrastTargets() {
+  const targets = [];
+  const add = (selector, key, glass = 0, fallbackThreshold = .43) => {
+    document.querySelectorAll(selector).forEach((element, index) => {
+      targets.push({ element, key: `${key}-${index}`, glass, fallbackThreshold });
+    });
+  };
+  add('.drag-region h1, .section-heading > span', 'header', 0, .34);
+  add('.filter-control, .filter-control select, .sort-control', 'control', .08, .39);
+  add('.event', 'event', .075, .43);
+  add('.empty', 'empty', .04, .42);
+  add('.toast', 'toast', 0, .46);
+  return targets;
+}
+
+const mixRgb = (base, overlay, amount) => base.map((channel, index) => channel * (1 - amount) + overlay[index] * amount);
+const relativeLuminance = (rgb) => rgb.map((channel) => {
+  const value = channel / 255;
+  return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+}).reduce((total, value, index) => total + value * [.2126, .7152, .0722][index], 0);
+const contrastRatio = (first, second) => (Math.max(first, second) + .05) / (Math.min(first, second) + .05);
+
+function prefersDarkInk(backdrop, glass) {
+  const panelTint = [30, 27, 49];
+  const panel = mixRgb(backdrop, panelTint, Number(state.settings.backgroundOpacity));
+  const surface = mixRgb(panel, [255, 255, 255], glass * Number(state.settings.contentOpacity));
+  const surfaceLuminance = relativeLuminance(surface);
+  return contrastRatio(surfaceLuminance, relativeLuminance([20, 32, 57])) >= contrastRatio(surfaceLuminance, relativeLuminance([228, 231, 248]));
+}
+
 function applyIndividualContrast() {
   const adaptive = state.settings.adaptiveContrast !== false;
   const backgroundOpacity = Number(state.settings.backgroundOpacity);
   const contentOpacity = Number(state.settings.contentOpacity);
-  // The panel, controls and cards are separate translucent layers.  Their
-  // effective exposure is deliberately evaluated separately instead of
-  // applying a single colour to the whole Memo window.
   const exposure = (1 - backgroundOpacity) * contentOpacity;
-  const setInk = (selector, threshold) => {
-    document.querySelectorAll(selector).forEach((element) => {
-      element.classList.toggle('contrast-dark-ink', adaptive && exposure >= threshold);
-    });
-  };
+  contrastTargets().forEach(({ element, key, glass, fallbackThreshold }) => {
+    const sampled = backdropSamples.get(key);
+    // Until a native sample returns, retain the opacity-only fallback. The
+    // normal path below uses the actual desktop colour behind this region.
+    const darkInk = sampled ? prefersDarkInk(sampled, glass) : exposure >= fallbackThreshold;
+    element.classList.toggle('contrast-dark-ink', adaptive && darkInk);
+  });
+}
 
-  setInk('.drag-region h1, .section-heading > span', .34);
-  setInk('.filter-control, .filter-control select, .sort-control', .39);
-  setInk('.event, .empty, .toast', .43);
+function requestIndividualContrastSample() {
+  applyIndividualContrast();
+  clearTimeout(backdropSampleTimer);
+  if (state.settings.adaptiveContrast === false || !window.steward?.sampleBackdropLuminance) return;
+  backdropSampleTimer = setTimeout(async () => {
+    const width = Math.max(window.innerWidth, 1);
+    const height = Math.max(window.innerHeight, 1);
+    const targets = contrastTargets();
+    const regions = targets.map(({ element, key }) => {
+      const rect = element.getBoundingClientRect();
+      return { id: key, x: rect.left / width, y: rect.top / height, width: rect.width / width, height: rect.height / height };
+    }).filter((region) => region.width > 0 && region.height > 0);
+    if (!regions.length) return;
+    try {
+      const samples = await window.steward.sampleBackdropLuminance(regions);
+      backdropSamples = new Map(samples.map(({ id, r, g, b }) => [id, [r, g, b]]));
+      applyIndividualContrast();
+    } catch {
+      // Keep the local opacity-based fallback if Windows cannot sample while
+      // the desktop is transitioning or the Memo window is hidden.
+    }
+  }, 90);
 }
 
 function render() {
@@ -507,7 +558,7 @@ function render() {
   const visibleEvents = sortEvents(events.filter((item) => shouldShowInQueue(item) && (activeCategory === 'all' || item.category === activeCategory)));
   if (!visibleEvents.length) {
     list.innerHTML = `<div class="empty">${events.length ? t('noCategoryEvents', '这个类别暂时没有事件。') : `${t('noEvents', '暂时没有事件。')}<br/>${t('startAdding', '点击右下角 ＋ 开始吧。')}`}</div>`;
-    applyIndividualContrast();
+    requestIndividualContrastSample();
     return;
   }
   for (const item of visibleEvents) {
@@ -527,7 +578,7 @@ function render() {
     card.querySelector('.delete').addEventListener('click', async () => { state = await window.steward.deleteEvent(item.id); render(); });
     list.append(card);
   }
-  applyIndividualContrast();
+  requestIndividualContrastSample();
 }
 
 const sevenSegmentMap = {

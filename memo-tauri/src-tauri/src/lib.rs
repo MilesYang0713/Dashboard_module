@@ -1,4 +1,5 @@
 use chrono::{Local, SecondsFormat, Utc};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{fs, path::{Path, PathBuf}, sync::Mutex};
 #[cfg(windows)] use std::{sync::{Arc, OnceLock, mpsc}, thread};
@@ -6,7 +7,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
-#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, POINT, WPARAM, RECT}, UI::WindowsAndMessaging::{CallNextHookEx, CallWindowProcW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, SetWindowsHookExW, TranslateMessage, HHOOK, HTCLIENT, HTTRANSPARENT, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, WH_MOUSE_LL, WM_NCHITTEST, WM_MOUSEWHEEL, WNDPROC, GWLP_WNDPROC}};
+#[cfg(windows)] use windows::Win32::{Foundation::{LPARAM, LRESULT, POINT, WPARAM, RECT}, Graphics::{Dwm::DwmFlush, Gdi::{GetDC, GetPixel, ReleaseDC}}, UI::WindowsAndMessaging::{CallNextHookEx, CallWindowProcW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, SetWindowsHookExW, ShowWindow, TranslateMessage, HHOOK, HTCLIENT, HTTRANSPARENT, MSLLHOOKSTRUCT, MSG, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WH_MOUSE_LL, WM_NCHITTEST, WM_MOUSEWHEEL, WNDPROC, GWLP_WNDPROC}};
 
 const DEFAULT_CATEGORIES: [(&str, &str, &str); 5] = [
     ("task", "事情", "#9c8cff"), ("learning", "学习", "#65b9ff"),
@@ -31,6 +32,11 @@ struct WindowRuntime {
 
 #[derive(Clone, Copy)]
 struct Bounds { x: i32, y: i32, width: u32, height: u32 }
+
+#[derive(Deserialize)]
+struct ContrastRegion { id: String, x: f64, y: f64, width: f64, height: f64 }
+#[derive(Serialize)]
+struct ContrastSample { id: String, r: u8, g: u8, b: u8 }
 
 #[cfg(windows)]
 #[derive(Clone, Copy)] struct ScreenRect { left: i32, top: i32, right: i32, bottom: i32 }
@@ -373,6 +379,41 @@ fn patch_settings(app: &AppHandle, memo: &MemoState, key: &str, value: Value) ->
 #[tauri::command] fn set_background_opacity(app: AppHandle, memo: State<MemoState>, value: f64) -> Result<Value, String> { patch_settings(&app, &memo, "backgroundOpacity", json!(value.clamp(0.0, 0.98))) }
 #[tauri::command] fn set_theme_color(app: AppHandle, memo: State<MemoState>, color: String) -> Result<Value, String> { let safe = if color.len() == 7 && color.starts_with('#') { color } else { "#8f82ff".into() }; patch_settings(&app, &memo, "themeColor", json!(safe)) }
 #[tauri::command] fn set_adaptive_contrast(app: AppHandle, memo: State<MemoState>, enabled: bool) -> Result<Value, String> { patch_settings(&app, &memo, "adaptiveContrast", json!(enabled)) }
+
+// The transparent webview cannot query pixels below itself. On Windows we
+// briefly hide only this window, sample the desktop below its own controls,
+// then show it again without activating it. No image is stored or sent away.
+#[tauri::command]
+fn sample_backdrop_luminance(app: AppHandle, regions: Vec<ContrastRegion>) -> Result<Vec<ContrastSample>, String> {
+    #[cfg(windows)] {
+        let window = app.get_webview_window("main").ok_or("Memo window is unavailable")?;
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        let rect = unsafe { let mut rect = RECT::default(); GetWindowRect(hwnd, &mut rect).map_err(|error| error.to_string())?; rect };
+        let width = (rect.right - rect.left).max(1) as f64;
+        let height = (rect.bottom - rect.top).max(1) as f64;
+        let regions = regions.into_iter().take(32).collect::<Vec<_>>();
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_HIDE);
+            let _ = DwmFlush();
+            let desktop = GetDC(None);
+            if desktop.0.is_null() {
+                let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+                return Err("Unable to sample the desktop backdrop".into());
+            }
+            let samples = regions.into_iter().map(|region| {
+                let x = rect.left + ((region.x + region.width / 2.0).clamp(0.0, 1.0) * width).round() as i32;
+                let y = rect.top + ((region.y + region.height / 2.0).clamp(0.0, 1.0) * height).round() as i32;
+                let color = GetPixel(desktop, x, y).0;
+                ContrastSample { id: region.id, r: (color & 0xff) as u8, g: ((color >> 8) & 0xff) as u8, b: ((color >> 16) & 0xff) as u8 }
+            }).collect::<Vec<_>>();
+            let _ = ReleaseDC(None, desktop);
+            let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            Ok(samples)
+        }
+    }
+    #[cfg(not(windows))]
+    { let _ = (app, regions); Ok(Vec::new()) }
+}
 #[tauri::command] fn set_language(app: AppHandle, memo: State<MemoState>, language: String) -> Result<Value, String> { patch_settings(&app, &memo, "language", json!(if language == "en" { "en" } else { "zh-CN" })) }
 #[tauri::command] fn set_completed_visibility(app: AppHandle, memo: State<MemoState>, visibility: String) -> Result<Value, String> { let safe = if ["immediate", "today", "24h"].contains(&visibility.as_str()) { visibility } else { "immediate".into() }; patch_settings(&app, &memo, "completedVisibility", json!(safe)) }
 
@@ -526,7 +567,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, set_language, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, unlock_click_through, set_locked_interaction_regions, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
+        .invoke_handler(tauri::generate_handler![bootstrap, capture_event, update_event, delete_event, restore_event, purge_event, set_content_opacity, set_background_opacity, set_theme_color, set_categories, set_adaptive_contrast, sample_backdrop_luminance, set_language, set_completed_visibility, toggle_topmost, toggle_window_lock, toggle_click_through, unlock_click_through, set_locked_interaction_regions, set_click_through_hotspot, get_window_bounds, resize_window, minimize_to_orb, restore_from_orb, begin_orb_drag, move_orb, end_orb_drag, hide_window, quit_app, set_storage_directory, write_export])
         .run(tauri::generate_context!())
         .expect("Memo Tauri 无法启动");
 }

@@ -32,6 +32,7 @@
     setThemeColor: (color) => invoke('set_theme_color', { color }),
     setCategories: (categories) => invoke('set_categories', { categories }),
     setAdaptiveContrast: (enabled) => invoke('set_adaptive_contrast', { enabled }),
+    sampleBackdropLuminance: (regions) => invoke('sample_backdrop_luminance', { regions }),
     setLanguage: (language) => invoke('set_language', { language }),
     setCompletedVisibility: (visibility) => invoke('set_completed_visibility', { visibility }),
     setLaunchAtLogin: async (enabled) => {
