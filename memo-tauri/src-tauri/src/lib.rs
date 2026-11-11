@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{fs, path::{Path, PathBuf}, sync::Mutex};
 #[cfg(windows)] use std::{sync::{Arc, OnceLock, mpsc}, thread};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
@@ -134,6 +134,18 @@ fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
     }
 }
 #[cfg(not(windows))] fn set_native_regions(_scroll: Option<()>, _unlock: Option<()>) {}
+
+#[cfg(windows)]
+fn set_unlock_overlay(app: &AppHandle, visible: bool, region: Option<ScreenRect>) {
+    let Some(overlay) = app.get_webview_window("unlock-overlay") else { return; };
+    let Some(region) = region.filter(|_| visible) else { let _ = overlay.hide(); return; };
+    let width = (region.right - region.left).max(1) as u32;
+    let height = (region.bottom - region.top).max(1) as u32;
+    let _ = overlay.set_position(PhysicalPosition::new(region.left, region.top));
+    let _ = overlay.set_size(PhysicalSize::new(width, height));
+    let _ = overlay.show();
+}
+#[cfg(not(windows))] fn set_unlock_overlay(_app: &AppHandle, _visible: bool, _region: Option<()>) {}
 
 #[cfg(windows)]
 fn native_unlock_region(app: &AppHandle, regions: &Value) -> Option<ScreenRect> {
@@ -445,25 +457,28 @@ fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, window: WebviewWin
 }
 
 fn apply_click_through(window: &WebviewWindow, _runtime: &WindowRuntime) -> Result<(), String> {
-    // On Windows the native WM_NCHITTEST handler below performs region-level
-    // click-through. Do not ignore the entire window or its chevrons cannot
-    // receive their original DOM click.
-    window.set_ignore_cursor_events(false).map_err(|e| e.to_string())
+    // HTTRANSPARENT alone cannot forward input to windows owned by another
+    // process. Use the native click-through flag for the actual Memo surface;
+    // the separate transparent unlock overlay owns the chevrons.
+    window.set_ignore_cursor_events(_runtime.click_through).map_err(|e| e.to_string())
 }
 #[tauri::command]
-fn toggle_click_through(_app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
+fn toggle_click_through(_app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); if !enabled { set_unlock_overlay(&_app, false, None); } set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
 #[tauri::command]
 fn unlock_click_through(app: AppHandle, memo: State<MemoState>) -> Result<bool, String> {
     let main = app.get_webview_window("main").ok_or("Memo 主窗口不存在")?;
     let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?;
     runtime.click_through = false; runtime.hotspot_active = false; apply_click_through(&main, &runtime)?;
-    drop(runtime); set_native_lock(false); let _ = main.emit("click-through-changed", false); let _ = main.emit("unlock-dock-requested", Value::Null); let _ = main.set_focus(); Ok(false)
+    drop(runtime); set_unlock_overlay(&app, false, None); set_native_lock(false); let _ = main.emit("click-through-changed", false); let _ = main.emit("unlock-dock-requested", Value::Null); let _ = main.set_focus(); Ok(false)
 }
 #[tauri::command]
 fn set_locked_interaction_regions(app: AppHandle, regions: Value) -> bool {
     #[cfg(windows)] {
         let rect = |key: &str| regions.get(key).and_then(Value::as_object).and_then(|value| Some(ScreenRect { left: value.get("left")?.as_i64()? as i32, top: value.get("top")?.as_i64()? as i32, right: value.get("right")?.as_i64()? as i32, bottom: value.get("bottom")?.as_i64()? as i32 }));
-        set_native_regions(rect("scroll"), native_unlock_region(&app, &regions).or_else(|| rect("unlock")));
+        let unlock = native_unlock_region(&app, &regions).or_else(|| rect("unlock"));
+        set_native_regions(rect("scroll"), unlock);
+        let click_through = app.state::<MemoState>().window.lock().map(|runtime| runtime.click_through).unwrap_or(false);
+        set_unlock_overlay(&app, click_through, unlock);
     }
     true
 }
@@ -551,6 +566,17 @@ pub fn run() {
         .setup(|app| {
             setup_native_input(app.handle().clone());
             app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None::<Vec<&str>>))?;
+            WebviewWindowBuilder::new(app, "unlock-overlay", WebviewUrl::App("unlock.html".into()))
+                .title("Memo unlock")
+                .inner_size(48.0, 68.0)
+                .decorations(false)
+                .transparent(true)
+                .shadow(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .visible(false)
+                .build()?;
             let toggle_window = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyM);
             let toggle_click = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyL);
             let shortcut_app = app.handle().clone();
