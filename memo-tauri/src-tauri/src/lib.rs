@@ -43,7 +43,7 @@ struct ContrastSample { id: String, r: u8, g: u8, b: u8 }
 #[cfg(windows)]
 impl ScreenRect { fn contains(self, x: i32, y: i32) -> bool { x >= self.left && x <= self.right && y >= self.top && y <= self.bottom } }
 #[cfg(windows)]
-#[derive(Default)] struct NativeInputState { locked: bool, scroll: Option<ScreenRect>, unlock: Option<ScreenRect>, unlock_hovered: bool }
+#[derive(Default)] struct NativeInputState { locked: bool, window_locked: bool, scroll: Option<ScreenRect>, unlock: Option<ScreenRect>, unlock_hovered: bool }
 #[cfg(windows)]
 enum NativeInput { Wheel(i16) }
 #[cfg(windows)]
@@ -65,6 +65,10 @@ unsafe extern "system" fn memo_window_proc(hwnd: windows::Win32::Foundation::HWN
                     // The system forwards these hits to the application below Memo.
                     return LRESULT(HTTRANSPARENT as isize);
                 }
+                // A pinned Memo must not let WebView2's drag region move the
+                // frameless native window. When unpinned we defer to WebView2
+                // so the original header drag behaviour remains available.
+                if state.window_locked { return LRESULT(HTCLIENT as isize); }
             }
         }
     }
@@ -112,6 +116,9 @@ fn setup_native_input(app: AppHandle) {
 #[cfg(windows)]
 fn set_native_lock(locked: bool) { if let Some(adapter) = NATIVE_INPUT.get() { if let Ok(mut state) = adapter.state.lock() { state.locked = locked; state.unlock_hovered = false; } } }
 #[cfg(not(windows))] fn set_native_lock(_locked: bool) {}
+#[cfg(windows)]
+fn set_native_window_lock(locked: bool) { if let Some(adapter) = NATIVE_INPUT.get() { if let Ok(mut state) = adapter.state.lock() { state.window_locked = locked; } } }
+#[cfg(not(windows))] fn set_native_window_lock(_locked: bool) {}
 #[cfg(windows)]
 fn set_native_regions(scroll: Option<ScreenRect>, unlock: Option<ScreenRect>) {
     if let Some(adapter) = NATIVE_INPUT.get() {
@@ -433,6 +440,7 @@ fn toggle_window_lock(app: AppHandle, memo: State<MemoState>, window: WebviewWin
     // Resizing is performed only by our transparent handles. Enabling Tauri's
     // native frame causes WebView2 to paint a white resize edge.
     window.set_resizable(false).map_err(|e| e.to_string())?;
+    set_native_window_lock(next_locked);
     patch_settings(&app, &memo, "windowLocked", json!(next_locked))
 }
 
@@ -564,6 +572,7 @@ pub fn run() {
                 if let Ok(saved) = load_state(&state) {
                     let _ = window.set_always_on_top(saved["settings"]["alwaysOnTop"].as_bool().unwrap_or(true));
                     let _ = window.set_resizable(false);
+                    set_native_window_lock(saved["settings"]["windowLocked"].as_bool().unwrap_or(true));
                 }
             }
             Ok(())
