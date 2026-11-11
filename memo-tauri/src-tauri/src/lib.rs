@@ -148,6 +148,23 @@ fn set_unlock_overlay(app: &AppHandle, visible: bool, region: Option<ScreenRect>
 #[cfg(not(windows))] fn set_unlock_overlay(_app: &AppHandle, _visible: bool, _region: Option<()>) {}
 
 #[cfg(windows)]
+fn place_unlock_overlay_for_main(app: &AppHandle, window: &WebviewWindow) {
+    let Ok(hwnd) = window.hwnd() else { return; };
+    let mut bounds = RECT::default();
+    if unsafe { GetWindowRect(hwnd, &mut bounds) }.is_err() { return; }
+    let scale = window.scale_factor().unwrap_or(1.0);
+    // The existing visual chevrons live at right: 0, bottom: 18px and are
+    // 23 × 44 CSS pixels. This hit-only overlay intentionally extends a little
+    // leftward for an easy target while remaining completely invisible.
+    let width = (42.0 * scale).round() as i32;
+    let height = (52.0 * scale).round() as i32;
+    let left = bounds.right - width;
+    let top = bounds.bottom - ((18.0 + 44.0) * scale).round() as i32 - 4;
+    set_unlock_overlay(app, true, Some(ScreenRect { left, top, right: bounds.right, bottom: top + height }));
+}
+#[cfg(not(windows))] fn place_unlock_overlay_for_main(_app: &AppHandle, _window: &WebviewWindow) {}
+
+#[cfg(windows)]
 fn native_unlock_region(app: &AppHandle, regions: &Value) -> Option<ScreenRect> {
     let ratio = regions.get("unlockLocal")?.as_object()?;
     let left_ratio = ratio.get("left")?.as_f64()?;
@@ -463,7 +480,7 @@ fn apply_click_through(window: &WebviewWindow, _runtime: &WindowRuntime) -> Resu
     window.set_ignore_cursor_events(_runtime.click_through).map_err(|e| e.to_string())
 }
 #[tauri::command]
-fn toggle_click_through(_app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); if !enabled { set_unlock_overlay(&_app, false, None); } set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
+fn toggle_click_through(app: AppHandle, memo: State<MemoState>, window: WebviewWindow, keep_hotspot_interactive: bool) -> Result<bool, String> { let mut runtime = memo.window.lock().map_err(|_| "窗口锁不可用")?; runtime.click_through = !runtime.click_through; runtime.hotspot_active = keep_hotspot_interactive; apply_click_through(&window, &runtime)?; let enabled = runtime.click_through; drop(runtime); if enabled { place_unlock_overlay_for_main(&app, &window); } else { set_unlock_overlay(&app, false, None); } set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); Ok(enabled) }
 #[tauri::command]
 fn unlock_click_through(app: AppHandle, memo: State<MemoState>) -> Result<bool, String> {
     let main = app.get_webview_window("main").ok_or("Memo 主窗口不存在")?;
@@ -584,7 +601,7 @@ pub fn run() {
                 if event.state() != ShortcutState::Pressed { return; }
                 if let Some(window) = shortcut_app.get_webview_window("main") {
                     if shortcut == &toggle_window { if window.is_visible().unwrap_or(true) { let _ = window.hide(); } else { let _ = window.show(); let _ = window.set_focus(); } }
-                    if shortcut == &toggle_click { let state = shortcut_app.state::<MemoState>(); if let Ok(mut runtime) = state.window.lock() { runtime.click_through = !runtime.click_through; let _ = apply_click_through(&window, &runtime); let enabled = runtime.click_through; drop(runtime); set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); }; }
+                    if shortcut == &toggle_click { let state = shortcut_app.state::<MemoState>(); if let Ok(mut runtime) = state.window.lock() { runtime.click_through = !runtime.click_through; let _ = apply_click_through(&window, &runtime); let enabled = runtime.click_through; drop(runtime); if enabled { place_unlock_overlay_for_main(&shortcut_app, &window); } else { set_unlock_overlay(&shortcut_app, false, None); } set_native_lock(enabled); let _ = window.emit("click-through-changed", enabled); }; }
                 }
             }).build())?;
             // The Electron edition may be open during a migration test and own
